@@ -586,7 +586,7 @@ export default class Podix {
 
 			// Register media on ledger
 			const address = identity.account.getAddress();
-			const fileAddress = this.route.forMedia(file).getAddress() +
+			const fileAddress = this.route.forMedia(file).getAddress() + "." +
 				file.split(",")[0].split("/")[1].split(";")[0];
 
 			// Generate file record
@@ -671,7 +671,7 @@ export default class Podix {
 				id: id,
 				name: name,
 				bio: bio,
-				picture: pictureAddress + ".png",
+				picture: pictureAddress,
 				address: address
 			}
 

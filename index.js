@@ -143,6 +143,15 @@ export default class Podix {
 
 	constructor(config = false, debug = false) {
 
+		// Set up global variables
+		this.user = null;
+		this.route = new Routes();
+		this.channels = Map({});
+		this.timers = Map({});
+
+		// Set logging level
+		this.setDebug(debug);
+
 		// Load remote config if none supplied
 		if (!config) {
 			this.server = "https://api.podium-network.com";
@@ -161,15 +170,6 @@ export default class Podix {
 			this.connect(config)
 		}
 
-		// Set up global variables
-		this.user = null;
-		this.route = new Routes();
-		this.channels = Map({});
-		this.timers = Map({});
-
-		// Set logging level
-		this.setDebug(debug);
-
 	}
 
 	connect(config) {
@@ -178,7 +178,7 @@ export default class Podix {
 		this.app = config.ApplicationID;
 		this.timeout = config.Timeout;
 		this.lifetime = config.Lifetime;
-		//this.server = config.API;
+		this.server = config.API;
 		this.media = config.MediaStore;
 
 		// Connect to radix network
@@ -562,7 +562,7 @@ export default class Podix {
 			const body = new FormData()
 			body.append("file", mediaFile)
 			body.append("address", address)
-			fetch(this.server + "/media",
+			fetch(`https://${this.server}/media`,
 				{
 					method: "POST",
 					body: body
@@ -795,7 +795,13 @@ export default class Podix {
 
 				// Search on address
 				this.getLatest(this.route.forProfileOf(target))
-					.then(profile => resolve(profile))
+					.then(result => {
+						const profile = result.update(
+							"picture",
+							(p) => `https://${this.media}/${p}`
+						)
+						resolve(profile)
+					})
 					.catch(error => reject(error))
 
 			}

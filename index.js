@@ -145,8 +145,7 @@ export default class Podix {
 
 		// Load remote config if none supplied
 		if (!config) {
-			this.server = "http://localhost:3000";
-			//this.server = "https://api.podium-network.com";
+			this.server = "https://api.podium-network.com";
 			fetch(this.server)
 				.then(response => {
 					if (!response.ok) {

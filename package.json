@@ -1,6 +1,6 @@
 {
   "name": "@carter_andrewj/podix",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "API library between the Podium social network and Radix DLT.",
   "main": "index.js",
   "scripts": {

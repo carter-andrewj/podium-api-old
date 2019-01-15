@@ -1,4 +1,7 @@
-import { radixUniverse, RadixUniverse, //RadixLogger,
+import { fromJS, Map, List } from 'immutable';
+
+import { radixUniverse, RadixUniverse, RadixLogger,
+		 RadixAccount, RadixUtil, RadixKeyPair,
 		 RadixSimpleIdentity, RadixIdentityManager,
 		 RadixKeyStore, RadixTransactionBuilder } from 'radixdlt';
 
@@ -8,6 +11,37 @@ import { radixUniverse, RadixUniverse, //RadixLogger,
 function getAccount(seed) {
 	const hash = RadixUtil.hash(Buffer.from(seed));
 	return new RadixAccount(RadixKeyPair.fromPrivate(hash));
+}
+
+
+
+
+class PodiumError extends Error {
+
+	constructor(...args) {
+		super(...args)
+		this.podiumError = true;
+		Error.captureStackTrace(this, PodiumError)
+	}
+
+	withCode(code) {
+		this.code = code;
+		return this;
+	}
+
+	report() {
+		switch (this.code) {
+			case (0): 
+				return "Server Offline."
+			case (1):
+				return "No data received."
+			case (2):
+				return "Timed out."
+			default:
+				return "Unknown error."
+		}
+	}
+
 }
 
 
@@ -25,10 +59,10 @@ class Routes {
 		return RadixAccount.fromAddress(address)
 	}
 	forKeystoreOf(id, pw) {
-		return getAccount("podium-keystore-for-" + id + pw)
+		return getAccount("podium-keystore-for-" + id.toLowerCase() + pw)
 	}
-	forProfileWithID(id) {	//TODO - Implement
-		return getAccount("podium-ownership-of-id-" + id)
+	forProfileWithID(id) {
+		return getAccount("podium-ownership-of-id-" + id.toLowerCase())
 	}
 	forIntegrityOf(address) {
 		return getAccount("podium-integrity-score-of-" + address);
@@ -47,7 +81,7 @@ class Routes {
 		return RadixAccount.fromAddress(address)
 	}
 	forTopicWithID(id) {
-		return getAccount("podium-topic-with-id-" + id);
+		return getAccount("podium-topic-with-id-" + id.toLowerCase());
 	}
 	forPostsAboutTopic(address) {
 		return getAccount("podium-posts-about-topic-" + address)
@@ -71,6 +105,15 @@ class Routes {
 	}
 	
 
+	// Media
+	forMedia(file) {
+		return getAccount(JSON.stringify(file))
+	}
+	forMediaFrom(address) {
+		return getAccount("podium-media-uploaded-by-" + address)
+	}
+
+
 	// Follows
 	forUsersFollowing(address) {
 		return getAccount("podium-user-followers-" + address)
@@ -92,31 +135,56 @@ class Routes {
 
 
 
-class Podium {
+export default class Podix {
 
-	constructor(
-			universe,		// ID of Radix node universe to join
-			appID,			// Radix Application ID for current deployment of Podium
-			server = "https://api.podium-network.com",		// URL of Podium server
-			timeout = 3,	// Default timeout on pending radix requests (seconds)
-			lifetime = 300,	// Default lifetime of inactive radix connections before termination (seconds)
-			debug = false,	// Enables/disables debug mode (verbose output, etc...)
-		) {
 
-		//TODO - Test server connection
+
+// INITIALIZATION
+
+	constructor(config = false, debug = false) {
+
+		// Load remote config if none supplied
+		if (!config) {
+			this.server = "http://localhost:3000";
+			//this.server = "https://api.podium-network.com";
+			fetch(this.server)
+				.then(response => {
+					if (!response.ok) {
+						throw new PodiumError("Server Offline")
+							.withCode(0)
+					} else {
+						fetch(this.server + "/config")
+							.then(response => response.json())
+							.then(config => this.connect(config))
+					}
+				});
+		} else {
+			this.connect(config)
+		}
 
 		// Set up global variables
+		this.user = null;
 		this.route = new Routes();
-		this.app = appID;
-		this.timeout = timeout;
-		this.lifetime = lifetime;
-		this.server = server;
-		this.channels = {};
-		this.timers = {};
+		this.channels = Map({});
+		this.timers = Map({});
+
+		// Set logging level
+		this.setDebug(debug);
+
+	}
+
+	connect(config) {
+		
+		// Extract settings from config
+		this.app = config.ApplicationID;
+		this.timeout = config.Timeout;
+		this.lifetime = config.Lifetime;
+		//this.server = config.API;
+		this.media = config.MediaStore;
 
 		// Connect to radix network
 		//TODO - Test radix connection
-		switch (universe) {
+		switch (config.Universe) {
 			case ("sunstone"):
 				radixUniverse.bootstrap(RadixUniverse.SUNSTONE);
 				break;
@@ -127,24 +195,36 @@ class Podium {
 				radixUniverse.bootstrap(RadixUniverse.ALPHANET);
 				break;
 			default:
-				throw new Error("Unknown Radix Universe: " + universe);
+				throw new Error("Unknown Radix Universe.");
 		}
-
-		// Set logging level
-		// if (!debug) {
-		// 	RadixLogger.setLevel('error')
-		// }
 
 	}
 
 
+
+
+// UTILITIES
 
 	getAccount(seed) {
 		return getAccount(seed);
 	}
 
+	cleanUp() { 
+		this.cleanUpTimers();
+		this.cleanUpChannels();
+	}
+
+	setDebug(debug) {
+		this.debug = debug;
+		if (debug) {
+			RadixLogger.setLevel('error')
+		}
+	}
 
 
+
+
+// TIMERS
 
 	newTimer(
 			id,			// Identifier of timer
@@ -161,7 +241,7 @@ class Podium {
 			// Delete record of this timer
 			this.timers.delete(id);
 
-		}, lifetime);
+		}, duration);
 
 		// Store timer
 		this.timers.id = {
@@ -185,7 +265,6 @@ class Podium {
 
 	}
 
-
 	stopTimer(
 			id 		// Identifier of timer to be stopped
 		) {
@@ -198,49 +277,30 @@ class Podium {
 
 	}
 
-
-
 	cleanUpTimers() {
 
 		// Stops all timers
-		Object.keys(this.timers).foreach((t) => stopTimer(t));
-
-	}
-
-	cleanUpChannels() {
-
-		// Closes all open Channels
-		Object.keys(this.channels).foreach((c) => closeChannel(c));
-
-	}
-
-	cleanUp() { 
-		cleanUpTimers();
-		cleanUpChannels();
-	}
-
-
-
-
-	init() {
-
-	}
-
-	alive() {
+		this.timers.map((t) => this.stopTimer(t));
 
 	}
 
 
+
+
+
+
+// WRITE DATA TO RADIX
 
 	sendRecord(
-			accounts,		// Destination accounts for record [Array]
-			payload,		// Payload of record to be sent [Object{}]
-			identity,		// Radix identity of sending user [RadixIdentity]
-			encrypt = false // Encrypt record with user's identity?
+			accounts,			// Destination accounts for record [Array]
+			payload,			// Payload of record to be sent [Object{}]
+			identity = this.user,
+			encrypt = false		// Encrypt record with user's identity?
 		) {
-		return new Promise((resolve) => {
+		if (!identity) { throw new Error("Missing Identity") }
+		return new Promise((resolve, reject) => {
 			if (accounts.length === 0) {
-				resolve(false);
+				reject(new Error("Received empty accounts array"));
 			} else {
 				RadixTransactionBuilder
 					.createPayloadAtom(
@@ -250,14 +310,52 @@ class Podium {
 						encrypt
 					)
 					.signAndSubmit(identity)
-					.subscribe({ complete: async () => resolve(true) });
+					.subscribe({
+						complete: () => resolve(true),
+						next: status => console.log(status),
+						error: error => reject(error)
+					});
 			}
 		});
 	}
 
 
+	sendRecords() {
+		return new Promise((resolve, reject) => {
+
+			// Unpack arg list
+			var args = Array.prototype.slice.call(arguments)
+
+			// Check if identity was provided
+			let identity;
+			if ((args.length % 2) === 1) {
+				identity = args[0]
+				args = args.slice(1, args.length)
+			} else if (this.user) {
+				identity = this.user
+			} else {
+				throw new Error("Missing Identity")
+			}
+
+			// Dispatch records
+			this.sendRecord(args[0], args[1], identity)
+				.then(result => {
+					if (args.length > 2) {
+						this.sendRecords(identity, ...args.slice(2, args.length))
+							.then(result => resolve(result))
+					} else {
+						resolve(true)
+					}
+				})
+				.catch(error => reject(error))
+
+		})
+	}
 
 
+
+
+// FETCH DATA FROM RADIX
 
 	getHistory(
 			account,				// Account to retreive all records from
@@ -267,36 +365,57 @@ class Podium {
 		// Pulls all current values from a radix
 		// -account- and closes the channel connection.
 
-		// Open the account connection
-		account.openNodeConnection();
+		return new Promise((resolve, reject) => {
 
-		// Connect to account data
-		const stream = account.dataSystem
-			.getApplicationData(this.appID)
-			.timeoutWith(timeout * 1000, Promise.resolve(false));
+			// Open the account connection
+			account.openNodeConnection();
 
-		// Fetch the data
-		return new Promise((resolve) => {
-			const history = [];
-			const channel = stream
-				.subscribe({
-					//TODO - Rewrite to pull until up-to-date once
-					//		 radix provides the required flag.
-					//		 Currently, this just collates all
-					//		 input until timeout.
-					next: item => {
-						if (!item) {
-							channel.unsubscribe();
-							resolve(history);
-						} else {
-							history.push(JSON.parse(item.data.payload));
-						}
-					},
-					error: error => {
-						channel.unsubscribe();
-						throw new error(error)
+			// Connect to account data
+			const stream = account.dataSystem
+				.getApplicationData(this.app);
+
+			// Fetch all data from target channel
+			let skipper;
+			var history = List([]);
+			const channel = stream.subscribe({
+				//TODO - Rewrite to pull until up-to-date once
+				//		 radix provides the required flag.
+				//		 Currently, this just collates all
+				//		 input until timeout.
+				next: item => {
+					if (skipper) { clearTimeout(skipper) }
+					var record = Map(fromJS(JSON.parse(item.data.payload)))
+						.set("received", (new Date()).getTime())
+						.set("created", item.data.timestamp);
+					history = history.push(record);
+					// Assume all records collated 1 second after first
+					// (This won't work long-term, but serves as an
+					// efficient fix for the timeout issue until the
+					// radix lib can flag a channel as up to date).
+					skipper = setTimeout(() => {
+						channel.unsubscribe()
+						resolve(history)
+					}, 1000);
+				},
+				error: error => {
+					channel.unsubscribe();
+					reject(error)
+				}
+			});
+
+			// Set timeout
+			setTimeout(
+				() => {
+					channel.unsubscribe();
+					if (history.size > 0) {
+						resolve(history)
+					} else {
+						reject(new PodiumError().withCode(2))
 					}
-				});
+				},
+				timeout * 1000
+			)
+
 		});
 
 		// TODO - Close node connection
@@ -313,21 +432,21 @@ class Podium {
 		// data for the provided -account-.
 
 		// Get account history
-		return new Promise((resolve) => {
+		return new Promise((resolve, reject) => {
 			this.getHistory(account, timeout)
-				.then(history => {
-					if (history.constructor === Array && history.length > 0) {
-						resolve(history[history.length - 1]);
-					} else if (Object.keys(history).length > 0) {
-						resolve(history);
-					} else {
-						resolve({});
-					}
-				});
+				.then(history => resolve(history
+					.sort((a, b) => (a.get("created") > b.get("created")) ? 1 : -1)
+					.last()
+				))
+				.catch(error => reject(error));
 		});
 
 	}
 
+
+
+
+// SUBSCRIBE TO RADIX DATA
 
 	openChannel(
 			account,					// Radix account to be queried
@@ -375,7 +494,7 @@ class Podium {
 				if (lifetime > 0) { this.resetTimer(address); }
 
 				// Run callback
-				const result = JSON.parse(item.data.payload);
+				const result = Map(fromJS(JSON.parse(item.data.payload)));
 				callback(result);
 
 			},
@@ -385,7 +504,7 @@ class Podium {
 				if (typeof(onError) === "function") {
 					onError(error);
 				} else {
-					closeChannel(address);
+					this.closeChannel(address);
 					throw error;
 				}
 
@@ -393,16 +512,15 @@ class Podium {
 		});
 
 		// Log open channel
-		this.channels.address = {
+		this.channels.set("address", Map({
 			timer: timer,
 			channel: channel
-		}
+		}))
 
 		// Return the channel
 		return channel;
 
 	}
-
 
 	closeChannel(
 			address 	// Radix address of channel to be closed
@@ -422,18 +540,91 @@ class Podium {
 
 	}
 
+	cleanUpChannels() {
+
+		// Closes all open Channels
+		this.channels.map((c) => this.closeChannel(c));
+
+	}
 
 
-	uploadMedia() {}
+
+
+// MEDIA
+
+
+	uploadMedia(mediaFile, address) {
+
+		// Dispatches a media file to the server, which
+		// returns an ID address for that image in the
+		// public store.
+
+		return new Promise((resolve, reject) => {
+			const body = new FormData()
+			body.append("file", mediaFile)
+			body.append("address", address)
+			fetch(this.server + "/media",
+				{
+					method: "POST",
+					body: body
+				})
+				.then(response => resolve(response))
+				.catch(error => reject(error))
+		})
+
+	}
+
+
+	createMedia(
+			file,
+			identity = this.user
+		) {
+		if (!identity) { throw new Error("Missing Identity") }
+		return new Promise((resolve, reject) => {
+
+			//TODO - Validate media with 3rd party service
+			//		 to detect image manipulation, etc...
+
+			// Register media on ledger
+			const address = identity.account.getAddress();
+			const fileAddress = this.route.forMedia(file).getAddress() +
+				file.split(",")[0].split("/")[1].split(";")[0];
+
+			// Generate file record
+			//TODO - Ensure media address is independent of
+			//		 the uploading user so the same image
+			//		 uploaded by different users is still
+			//		 only stored once on S3.
+			const mediaAccount = this.route.forMediaFrom(address);
+			const mediaPayload = {
+				record: "media",
+				type: "image",
+				address: fileAddress
+			}
+
+			// Register media on ledger
+			//TODO - Check if media already exists and skip
+			//		 this step, if required
+			this.sendRecord([mediaAccount], mediaPayload, identity)
+				.then(() => this.uploadMedia(file, fileAddress))
+				.then(() => resolve(fileAddress))
+				.catch(error => reject(error))
+
+		})
+	}
 
 
 
-	registerUser(
-			id,		// Podium @ ID of new user account
-			pw,		// Password for new user account
-			name,	// Display name of new user account
-			bio,	// Bio of new user account
-			picture	// Picture address (in media archive) of user's profile picture
+
+// USERS
+
+	createUser(
+			id,			// Podium @ ID of new user account
+			pw,			// Password for new user account
+			name,		// Display name of new user account
+			bio,		// Bio of new user account
+			picture,	// Picture address (in media archive) of user's profile picture
+			setUser=false
 		) {
 
 		// Registers a new podium user.
@@ -460,7 +651,7 @@ class Podium {
 		//TODO - Require ID and pw to obey certain rulesets
 
 		// Create output promise
-		return new Promise((resolve) => {
+		return new Promise(async (resolve, reject) => {
 
 			// Create user identity
 			const identityManager = new RadixIdentityManager();
@@ -468,6 +659,10 @@ class Podium {
 			const address = identity.account.getAddress();
 
 			//TODO - Store picture, if present
+			let pictureAddress;
+			if (picture) {
+				pictureAddress = await this.createMedia(picture, identity)
+			}
 
 			// Generate user public record
 			const profileAccount = this.route.forProfileOf(address);
@@ -477,8 +672,7 @@ class Podium {
 				id: id,
 				name: name,
 				bio: bio,
-				picture: pictureAddress,
-				created: (new Date()).getTime(),
+				picture: pictureAddress + ".png",
 				address: address
 			}
 
@@ -487,7 +681,14 @@ class Podium {
 			const podPayload = {
 				owner: address,
 				pod: 500,
-				on: (new Date()).getTime(),
+				from: ""
+			}
+
+			// Generate user AUD account
+			const audAccount = this.route.forAUDof(address);
+			const audPayload = {
+				owner: address,
+				pod: 10,
 				from: ""
 			}
 
@@ -496,7 +697,6 @@ class Podium {
 			const integrityPayload = {
 				owner: address,
 				i: 0.5,
-				on: (new Date()).getTime(),
 				from: ""
 			}
 
@@ -510,66 +710,60 @@ class Podium {
 			// Encrypt keypair
 			const keyStore = this.route.forKeystoreOf(id, pw);
 			RadixKeyStore.encryptKey(identity.keyPair, pw)
-				.then(async (encryptedKey) => {
+				.then(async encryptedKey => {
 
 					// Store registration records
-					this.sendRecord([keyStore], encryptedKey, identity)
-						.then(await this.sendRecord([profileAccount], profilePayload, identity))
-						.then(await this.sendRecord([podAccount], podPayload, identity))
-						.then(await this.sendRecord([integrityAccount], integrityPayload, identity))
-						.then(await this.sendRecord([rosterAccount], rosterPayload, identity))
-						.then(await this.sendRecord([ownershipAccount], ownershipPayload, identity))
-						//TODO - Add this user to the index database
-						//TODO - Auto-follow Podium master account
-						.then(() => { resolve(true); });
+					return this.sendRecords(
+						identity,
+						[keyStore], encryptedKey,
+						[profileAccount], profilePayload,
+						[podAccount], podPayload,
+						[audAccount], audPayload,
+						[integrityAccount], integrityPayload,
+						[ownershipAccount], ownershipPayload
+					)
 
 				})
-				.catch((error) => {
-
-					// Throw errors, if any
-					throw error;
-
-					// Resolve false to ensure continued functionality in case
-					// thrown error is caught and ignored by a higher-level try
-					// statement
-					resolve(false);
-
-				});
+				//TODO - Add this user to the index database
+				//TODO - Auto-follow Podium master account
+				.then(result => {
+					if (setUser) { this.user = identity }
+					resolve(result)
+				})
+				.catch(error => reject(error))
 
 		});
 
 	}
 
 
-	signIn(
+	setUser(
 			id,		// User Identifier
 			pw 		// User password
 		) {
-
-		return new Promise((resolve) => {
-
-			const keyStore = this.route.forKeystoreOf(id, pw);
-			this.getLatest(keyStore, 20)
-				.then(async (encryptedKey) => {
-
-					// Check key successfully returned
-					if (!encryptedKey) { resolve(false) }
-
-					// Decrypt keys
-					RadixKeyStore.decryptKey(encryptedKey, pw)
-				    	.then(async (keyPair) => {
-							const identity = new RadixSimpleIdentity(keyPair);
-							resolve(identity);
-						})
-						.error(resolve(false));
-
+		return new Promise((resolve, reject) => {
+			this.getLatest(this.route.forKeystoreOf(id, pw))
+				.then(encryptedKey => RadixKeyStore
+					.decryptKey(encryptedKey.toJS(), pw))
+				.then(keyPair => {
+					this.user = new RadixSimpleIdentity(keyPair);
+					resolve(true);
 				})
-
+				.catch(error => reject(error))
 		})
-
 	}
 
 
+	updateUserIdentifier() {}
+
+
+	swapUserIdentifiers() {}
+
+
+
+
+
+// USER PROFILES
 
 	updateUserDisplayName() {}
 
@@ -578,213 +772,52 @@ class Podium {
 	updateUserPicture() {}
 
 
+	//TODO - handle multiple simultaneous requests
+	//		 for the same record without multiple
+	//		 calls to the network
 
-	updateUserIdentifier() {}
+	fetchProfile(
+			target,		// The address (or ID) of the profile to be retreived
+			id = false 	// Set true if passing an ID instead of an address
+		) {
+		return new Promise((resolve, reject) => {
+			
+			// Search on ID or Address
+			if (id) {
 
-	swapUserIdentifiers() {}
+				// Search on ID
+				this.getLatest(this.route.forProfileWithID(target))
+					.then(reference => resolve(
+						this.fetchProfile(reference.get("address"))
+					))
+					.catch(error => reject(error))
 
+			} else {
 
+				// Search on address
+				this.getLatest(this.route.forProfileOf(target))
+					.then(profile => resolve(profile))
+					.catch(error => reject(error))
 
+			}
 
-	getProfile(address) {
-		return new Promise((resolve) => {
-			getLatest(this.route.forProfileOf(address))
-				.then(profile => {
-					profile.received = (new Date()).getTime();
-					resolve(Map(fromJS(profile)))
-				})
-				.error(resolve(false))
 		})
 	}
 
 
-	getPost(address) {
-		return new Promise((resolve) => {
-			getLatest(this.route.forPost(address))
-				.then(post => {
-					post.received = (new Date()).getTime();
-					resolve(Map(fromJS(profile)))
-				})
-				.error(resolve(false))
-		})
-	}
 
 
+// TOPICS
 
-
-	listenPosts(address, callback) {
-		openChannel(
-			this.route.forPostsBy(address),
-			callback
-		);
-	}
-
-
-	listenAlerts(address, callback) {
-		openChannel(
-			this.route.forAlertsTo(address),
-			callback
-		);
-	}
-
-
-	listenFollow(address, callback) {
-		openChannel(
-			this.route.forUsersFollowedBy(address),
-			callback
-		);
-	}
-
-
-
-
-	followUser(
-			userAddress,	// Address of active user
-			followAddress	// Address of user now being followed by active user
-		) {
-
-		return new Promise((resolve) => {
-
-			// Build follow account payload
-			const followAccount = this.route.forFollowing(userAddress);
-			const followRecord = {
-				type: "follower index",
-				address: userAddress,
-				timestamp: time
-			};
-
-			// Build relation account and payload
-			const relationAccount = this.route.forRelationOf(userAddress, followAddress);
-			const relationRecord = {
-				type: "follower record",
-				users: [userAddress, followAddress],
-				follow: true,
-				timestamp: time
-			};
-
-			// Build following payload
-			const followingAccount = this.route.forFollowsBy(userAddress);
-			const followingRecord = {
-				type: "following index",
-				address: followAddress,
-				timestamp: time
-			};
-
-			// Store following record
-			this.sendRecord([followAccount], followRecord)
-				.then(await this.sendRecord([relationAccount], relationRecord))
-				.then(await this.sendRecord([followingAccount], followingRecord))
-				//TODO - Alerts system
-				.then(resolve());
-
-		})
-
-	}
-
-
-
-	unfollowUser() {}
-
-
-
-	sendPost(
-			userAddress,		// Podium address of posting user
-			content,			// Content of new post
-			references = [],	// References contained in new post
-			parent = null		// Record of post being replied to (if any)
-		) {
-
-		// Return promise (true == success | false == fail)
-		return new Promise((resolve) => {
-
-			// Build post accounts
-			//TODO - Fix deterministic posting addresses
-			//const postAccount = Channel.forNextPostBy(this.state.data.get("user"));
-			const postAccount = Channel.forNewPost(content);
-			const postAddress = postAccount.getAddress();
-
-			// Get timestamp
-			//TODO - Is this needed? Does Radix not timestamp
-			//		 the payload itself?
-			const time = (new Date()).getTime();
-
-			// Build post record
-			const postRecord = {
-				record: "post",		// origin, amendment, retraction
-				type: "post",
-				content: content,
-				address: postAddress,
-				author: userAddress,
-				parent: (parent) ? parent.get("address") : null,			
-				origin: (parent) ? parent.get("origin") : postAddress,
-				depth: (parent) ? parent.get("depth") + 1 : 0,
-				created: time
-			}
-
-			// Build reference payload and destination accounts
-			const refAccounts = [
-				this.route.forPostsBy(userAddress)
-				//TODO - Add to other indexes for topics, mentions, links
-			];
-			const refRecord = {
-				record: "post",
-				type: "reference",
-				address: postAddress,
-				created: time
-			}
-
-			// Build alert payload
-			//TODO - build alerts system
-			const alertAccounts = []
-			const alertRecord = {
-				record: "alert",
-				type: "mention",
-				address: postAddress,
-				by: userAddress
-				created: time
-			}
-
-			// Store records in ledger
-			this.sendRecord([postAccount], postRecord)
-				.then(await this.sendRecord(refAccounts, refRecord))
-				.then(await this.sendRecord(alertAccounts, alertRecord))
-				.then(resolve());
-
-		});
-
-	}
-
-	promotePost(
-			address, 	// Radix address of post to be promoted
-			promoter,	// Radix address of user promoting said post
-			pod,		// Podium spent promoting the post
-			aud = 0		// Audium spent promoting the post
-		) {
-		console.log("PROMOTED POST ", address);
-	}
-
-	reportPost(address) {
-		console.log("REPORTED POST ", address);
-	}
-
-	amendPost(address, content) {
-		console.log("AMEND POST ", address, content);
-	}
-
-	retractPost(address, content) {
-		console.log("RETRACT POST, ", address, content);
-	}
-
-
-	// Generate topic channel
 	createTopic(
 			id,				// Unique identifier for topic
 			name,			// Display name of topic
-			description		// Description of topic
+			description,	// Description of topic
+			owner,			// Address of creating user
+			identity = this.user
 		) {
-
-		// Return promise
-		return new Promise((resolve) => {
+		if (!identity) { throw new Error("Missing Identity") }
+		return new Promise((resolve, reject) => {
 
 			// Resolve topic address
 			const topicAccount = this.route.forTopicWithID(id);
@@ -797,18 +830,239 @@ class Podium {
 				id: id,
 				name: name,
 				description: description,
-				owner: this.user.address,
+				owner: owner,
 				address: topicAddress
 			}
 
 			// Store topic
-			this.sendRecord([topicAccount], topicRecord)
+			this.sendRecord([topicAccount], topicRecord, identity)
 				//TODO - Add topic to index database
-				.then(resolve(true));
+				.then(result => resolve(fromJS(topicRecord)))
+				.catch(error => reject(error))
+
+		})
+	}
+
+
+	fetchTopic(
+			target,		// The address (or ID) of the topic to be retreived
+			id = false	// Set true if passing an ID instead of an address
+		) {
+		return new Promise((resolve, reject) => {
+			
+			// Search on ID or Address
+			if (id) {
+
+				// Search on ID
+				this.getLatest(this.route.forTopicWithID(target))
+					.then(reference => resolve(
+						this.fetchTopic(reference.get("address"))
+					))
+					.catch(error => reject(error))
+
+			} else {
+
+				// Search on address
+				this.getLatest(this.route.forTopic(target))
+					.then(topic => resolve(topic))
+					.catch(error => reject(error))
+
+			}
+
+		})
+	}
+
+
+
+
+
+// POSTS
+
+	createPost(
+			content,			// Content of new post
+			references = [],	// References contained in new post
+			parent = null,		// Record of post being replied to (if any)
+			identity = this.user
+		) {
+		if (!identity) { throw new Error("Missing Identity") }
+		return new Promise((resolve, reject) => {
+
+			// Get user data
+			const userAddress = identity.account.getAddress();
+
+			// Build post accounts
+			//TODO - Fix deterministic posting addresses
+			//const postAccount = this.route.forNextPostBy(this.state.data.get("user"));
+			const postAccount = this.route.forNewPost(content);
+			const postAddress = postAccount.getAddress();
+
+			// Build post record
+			const postRecord = {
+				record: "post",		// origin, amendment, retraction
+				type: "post",
+				content: content,
+				address: postAddress,
+				author: userAddress,
+				parent: (parent) ? parent.get("address") : null,			
+				origin: (parent) ? parent.get("origin") : postAddress,
+				depth: (parent) ? parent.get("depth") + 1 : 0
+			}
+
+			// Build reference payload and destination accounts
+			const refAccounts = [
+				this.route.forPostsBy(userAddress)
+				//TODO - Add to other indexes for topics, mentions, links
+			];
+			const refRecord = {
+				record: "post",
+				type: "reference",
+				address: postAddress
+			}
+
+			// Build alert payload
+			//TODO - build alerts system
+			// const alertAccounts = []
+			// const alertRecord = {
+			// 	record: "alert",
+			// 	type: "mention",
+			// 	address: postAddress,
+			// 	by: userAddress
+			// 	created: time
+			// }
+
+			// Store records in ledger
+			this.sendRecords(
+					identity,
+					[postAccount], postRecord,
+					refAccounts, refRecord
+				)
+				.then(result => resolve(fromJS(postRecord)))
+				.catch(error => reject(error))
+
+		});
+
+	}
+
+
+	fetchPost(address) {
+		return new Promise((resolve, reject) => {
+			this.getHistory(this.route.forPost(address))
+				.then(postHistory => resolve(
+					postHistory.reduce(
+						(p, nxt) => {
+							// TODO - Merge edits and retractions
+							//		  into a single cohesive map
+							return p.mergeDeep(nxt);
+						},
+						Map({})
+					)
+				))
+				.catch(error => reject(error))
+		})
+	}
+
+
+	listenPosts(address, callback) {
+		this.openChannel(
+			this.route.forPostsBy(address),
+			callback
+		);
+	}
+
+
+	promotePost(
+			address, 	// Radix address of post to be promoted
+			promoter,	// Radix address of user promoting said post
+			pod,		// Podium spent promoting the post
+			aud = 0		// Audium spent promoting the post
+		) {
+		console.log("PROMOTED POST ", address);
+	}
+
+
+	reportPost() {}
+
+
+	amendPost() {}
+
+
+	retractPost() {}
+
+
+
+
+
+// ALERTS
+
+	listenAlerts(address, callback) {
+		this.openChannel(
+			this.route.forAlertsTo(address),
+			callback
+		);
+	}
+
+
+
+
+// FOLLOWING
+
+	listenFollow(address, callback) {
+		this.openChannel(
+			this.route.forUsersFollowedBy(address),
+			callback
+		);
+	}
+
+
+	followUser(
+			followAddress,	// Address of user now being followed by active user
+			identity=this.user
+		) {
+		if (identity) { throw new Error("Missing Identity") }
+		return new Promise((resolve, reject) => {
+
+			// Get user data
+			const userAddress = identity.account.getAddress();
+
+			// Build follow account payload
+			const followAccount = this.route.forFollowing(userAddress);
+			const followRecord = {
+				type: "follower index",
+				address: userAddress,
+			};
+
+			// Build relation account and payload
+			const relationAccount = this.route.forRelationOf(userAddress, followAddress);
+			const relationRecord = {
+				type: "follower record",
+				users: [userAddress, followAddress],
+				follow: true,
+			};
+
+			// Build following payload
+			const followingAccount = this.route.forFollowsBy(userAddress);
+			const followingRecord = {
+				type: "following index",
+				address: followAddress,
+			};
+
+			// Store following record
+			this.sendRecords(
+					identity,
+					[followAccount], followRecord,
+					[relationAccount], relationRecord,
+					[followingAccount], followingRecord
+				)
+				//TODO - Alerts system
+				.then((result) => resolve(result))
+				.catch(error => reject(error))
 
 		})
 
 	}
+
+
+	unfollowUser() {}
 
 
 }

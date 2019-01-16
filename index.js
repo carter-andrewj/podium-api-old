@@ -618,6 +618,35 @@ export default class Podix {
 // USERS
 
 	createUser(
+		id,			// Podium @ ID of new user account
+		pw,			// Password for new user account
+		name,		// Display name of new user account
+		bio,		// Bio of new user account
+		picture,	// Picture address (in media archive) of user's profile picture
+		) {
+		return new Promise((resolve, reject) => {
+			fetch(
+				`https://${this.server}/user`,
+				{
+					method: "POST",
+					body: {
+						id: id,
+						pw: pw,
+						name: name,
+						bio: bio,
+						picture: picture
+					}
+				})
+				.promise()
+				.then(response => {
+					console.log("Create User Response", response)
+					resolve(response)
+				})
+				.catch(error => reject(error))
+		})
+	}
+
+	newUser(
 			id,			// Podium @ ID of new user account
 			pw,			// Password for new user account
 			name,		// Display name of new user account
@@ -648,6 +677,8 @@ export default class Podix {
 		//			permit users to freely transfer their IDs
 
 		//TODO - Require ID and pw to obey certain rulesets
+
+		//TODO - Replace with scrypto smart contract
 
 		// Create output promise
 		return new Promise(async (resolve, reject) => {
@@ -727,7 +758,7 @@ export default class Podix {
 				//TODO - Auto-follow Podium master account
 				.then(result => {
 					if (setUser) { this.user = identity }
-					resolve(result)
+					resolve(address)
 				})
 				.catch(error => reject(error))
 

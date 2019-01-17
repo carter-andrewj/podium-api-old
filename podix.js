@@ -269,7 +269,7 @@ function () {
       this.app = config.ApplicationID;
       this.timeout = config.Timeout;
       this.lifetime = config.Lifetime;
-      this.server = config.API; // "https://" + config.API
+      this.server = "http://" + config.API; // "https://" + config.API
 
       this.media = config.MediaStore; // Connect to radix network
       //TODO - Test radix connection

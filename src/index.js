@@ -560,13 +560,12 @@ export default class Podix {
 		// public store.
 
 		return new Promise((resolve, reject) => {
-			const body = new FormData()
-			body.append("file", mediaFile)
-			body.append("address", address)
-			fetch(`${this.server}/media`,
-				{
-					method: "POST",
-					body: body
+			// const body = new FormData()
+			// body.append("file", mediaFile)
+			// body.append("address", address)
+			this.dispatch("media", {
+					address: address,
+					file: mediaFile
 				})
 				.then(response => resolve(response))
 				.catch(error => reject(error))
@@ -615,6 +614,21 @@ export default class Podix {
 
 
 
+// SERVER
+
+	dispatch(route, data) {
+		return new Promise((resolve, reject) => {
+			const body = new FormData();
+			data.map((v, k) => body.append(k, v))
+			fetch(`${this.server}/${route}`, body)
+				.then(result => resolve(result))
+				.catch(error => reject(error))
+		})
+	}
+
+
+
+
 
 // USERS
 
@@ -626,18 +640,25 @@ export default class Podix {
 		picture,	// Picture address (in media archive) of user's profile picture
 		) {
 		return new Promise((resolve, reject) => {
-			fetch(
-				`${this.server}/user`,
-				{
-					method: "POST",
-					body: {
-						id: id,
-						pw: pw,
-						name: name,
-						bio: bio,
-						picture: picture
-					}
+			this.dispatch("user", {
+					id: id,
+					pw: pw,
+					name: name,
+					bio: bio,
+					picture: picture
 				})
+			// const body = new FormData();
+			// body.append("id", id)
+			// body.append("pw", pw)
+			// body.append("name", name)
+			// body.append("bio", bio)
+			// body.append("picture", picture)
+			// fetch(
+			// 	`${this.server}/user`,
+			// 	{
+			// 		method: "POST",
+			// 		body: body
+			// 	})
 				.then(response => {
 					console.log("Response from Create User", response)
 					resolve(response)

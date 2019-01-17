@@ -636,12 +636,12 @@ function () {
       // returns an ID address for that image in the
       // public store.
       return new Promise(function (resolve, reject) {
-        var body = new FormData();
-        body.append("file", mediaFile);
-        body.append("address", address);
-        fetch("".concat(_this11.server, "/media"), {
-          method: "POST",
-          body: body
+        // const body = new FormData()
+        // body.append("file", mediaFile)
+        // body.append("address", address)
+        _this11.dispatch("media", {
+          address: address,
+          file: mediaFile
         }).then(function (response) {
           return resolve(response);
         }).catch(function (error) {
@@ -690,6 +690,24 @@ function () {
           return reject(error);
         });
       });
+    } // SERVER
+
+  }, {
+    key: "dispatch",
+    value: function dispatch(route, data) {
+      var _this13 = this;
+
+      return new Promise(function (resolve, reject) {
+        var body = new FormData();
+        data.map(function (v, k) {
+          return body.append(k, v);
+        });
+        fetch("".concat(_this13.server, "/").concat(route), body).then(function (result) {
+          return resolve(result);
+        }).catch(function (error) {
+          return reject(error);
+        });
+      });
     } // USERS
 
   }, {
@@ -700,19 +718,28 @@ function () {
     bio, // Bio of new user account
     picture) // Picture address (in media archive) of user's profile picture
     {
-      var _this13 = this;
+      var _this14 = this;
 
       return new Promise(function (resolve, reject) {
-        fetch("".concat(_this13.server, "/user"), {
-          method: "POST",
-          body: {
-            id: id,
-            pw: pw,
-            name: name,
-            bio: bio,
-            picture: picture
-          }
-        }).then(function (response) {
+        _this14.dispatch("user", {
+          id: id,
+          pw: pw,
+          name: name,
+          bio: bio,
+          picture: picture
+        }) // const body = new FormData();
+        // body.append("id", id)
+        // body.append("pw", pw)
+        // body.append("name", name)
+        // body.append("bio", bio)
+        // body.append("picture", picture)
+        // fetch(
+        // 	`${this.server}/user`,
+        // 	{
+        // 		method: "POST",
+        // 		body: body
+        // 	})
+        .then(function (response) {
           console.log("Response from Create User", response);
           resolve(response);
         }).catch(function (error) {
@@ -727,7 +754,7 @@ function () {
     name, // Display name of new user account
     bio, // Bio of new user account
     picture) {
-      var _this14 = this;
+      var _this15 = this;
 
       var setUser = arguments.length > 5 && arguments[5] !== undefined ? arguments[5] : false;
       // Registers a new podium user.
@@ -774,14 +801,14 @@ function () {
                   }
 
                   _context3.next = 6;
-                  return _this14.createMedia(picture, identity);
+                  return _this15.createMedia(picture, identity);
 
                 case 6:
                   pictureAddress = _context3.sent;
 
                 case 7:
                   // Generate user public record
-                  profileAccount = _this14.route.forProfileOf(address);
+                  profileAccount = _this15.route.forProfileOf(address);
                   profilePayload = {
                     record: "user",
                     type: "profile",
@@ -792,34 +819,34 @@ function () {
                     address: address // Generate user POD account
 
                   };
-                  podAccount = _this14.route.forPODof(address);
+                  podAccount = _this15.route.forPODof(address);
                   podPayload = {
                     owner: address,
                     pod: 500,
                     from: "" // Generate user AUD account
 
                   };
-                  audAccount = _this14.route.forAUDof(address);
+                  audAccount = _this15.route.forAUDof(address);
                   audPayload = {
                     owner: address,
                     pod: 10,
                     from: "" // Generate user integrity record
 
                   };
-                  integrityAccount = _this14.route.forIntegrityOf(address);
+                  integrityAccount = _this15.route.forIntegrityOf(address);
                   integrityPayload = {
                     owner: address,
                     i: 0.5,
                     from: "" // Generate record of this user's address owning this ID
 
                   };
-                  ownershipAccount = _this14.route.forProfileWithID(id);
+                  ownershipAccount = _this15.route.forProfileWithID(id);
                   ownershipPayload = {
                     id: id,
                     owner: address
                   }; // Encrypt keypair
 
-                  keyStore = _this14.route.forKeystoreOf(id, pw);
+                  keyStore = _this15.route.forKeystoreOf(id, pw);
 
                   _radixdlt.RadixKeyStore.encryptKey(identity.keyPair, pw).then(
                   /*#__PURE__*/
@@ -831,7 +858,7 @@ function () {
                         while (1) {
                           switch (_context2.prev = _context2.next) {
                             case 0:
-                              return _context2.abrupt("return", _this14.sendRecords(identity, [keyStore], encryptedKey, [profileAccount], profilePayload, [podAccount], podPayload, [audAccount], audPayload, [integrityAccount], integrityPayload, [ownershipAccount], ownershipPayload));
+                              return _context2.abrupt("return", _this15.sendRecords(identity, [keyStore], encryptedKey, [profileAccount], profilePayload, [podAccount], podPayload, [audAccount], audPayload, [integrityAccount], integrityPayload, [ownershipAccount], ownershipPayload));
 
                             case 1:
                             case "end":
@@ -848,7 +875,7 @@ function () {
                   //TODO - Auto-follow Podium master account
                   .then(function (result) {
                     if (setUser) {
-                      _this14.user = identity;
+                      _this15.user = identity;
                     }
 
                     resolve(address);
@@ -874,13 +901,13 @@ function () {
     value: function setUser(id, // User Identifier
     pw // User password
     ) {
-      var _this15 = this;
+      var _this16 = this;
 
       return new Promise(function (resolve, reject) {
-        _this15.getLatest(_this15.route.forKeystoreOf(id, pw)).then(function (encryptedKey) {
+        _this16.getLatest(_this16.route.forKeystoreOf(id, pw)).then(function (encryptedKey) {
           return _radixdlt.RadixKeyStore.decryptKey(encryptedKey.toJS(), pw);
         }).then(function (keyPair) {
-          _this15.user = new _radixdlt.RadixSimpleIdentity(keyPair);
+          _this16.user = new _radixdlt.RadixSimpleIdentity(keyPair);
           resolve(true);
         }).catch(function (error) {
           return reject(error);
@@ -910,23 +937,23 @@ function () {
     key: "fetchProfile",
     value: function fetchProfile(target) // Set true if passing an ID instead of an address
     {
-      var _this16 = this;
+      var _this17 = this;
 
       var id = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
       return new Promise(function (resolve, reject) {
         // Search on ID or Address
         if (id) {
           // Search on ID
-          _this16.getLatest(_this16.route.forProfileWithID(target)).then(function (reference) {
-            return resolve(_this16.fetchProfile(reference.get("address")));
+          _this17.getLatest(_this17.route.forProfileWithID(target)).then(function (reference) {
+            return resolve(_this17.fetchProfile(reference.get("address")));
           }).catch(function (error) {
             return reject(error);
           });
         } else {
           // Search on address
-          _this16.getLatest(_this16.route.forProfileOf(target)).then(function (result) {
+          _this17.getLatest(_this17.route.forProfileOf(target)).then(function (result) {
             var profile = result.update("picture", function (p) {
-              return "".concat(_this16.media, "/").concat(p);
+              return "".concat(_this17.media, "/").concat(p);
             });
             resolve(profile);
           }).catch(function (error) {
@@ -942,7 +969,7 @@ function () {
     name, // Display name of topic
     description, // Description of topic
     owner) {
-      var _this17 = this;
+      var _this18 = this;
 
       var identity = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : this.user;
 
@@ -952,7 +979,7 @@ function () {
 
       return new Promise(function (resolve, reject) {
         // Resolve topic address
-        var topicAccount = _this17.route.forTopicWithID(id);
+        var topicAccount = _this18.route.forTopicWithID(id);
 
         var topicAddress = topicAccount.getAddress(); // Build topic record
 
@@ -967,7 +994,7 @@ function () {
 
         };
 
-        _this17.sendRecord([topicAccount], topicRecord, identity) //TODO - Add topic to index database
+        _this18.sendRecord([topicAccount], topicRecord, identity) //TODO - Add topic to index database
         .then(function (result) {
           return resolve((0, _immutable.fromJS)(topicRecord));
         }).catch(function (error) {
@@ -979,21 +1006,21 @@ function () {
     key: "fetchTopic",
     value: function fetchTopic(target) // Set true if passing an ID instead of an address
     {
-      var _this18 = this;
+      var _this19 = this;
 
       var id = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
       return new Promise(function (resolve, reject) {
         // Search on ID or Address
         if (id) {
           // Search on ID
-          _this18.getLatest(_this18.route.forTopicWithID(target)).then(function (reference) {
-            return resolve(_this18.fetchTopic(reference.get("address")));
+          _this19.getLatest(_this19.route.forTopicWithID(target)).then(function (reference) {
+            return resolve(_this19.fetchTopic(reference.get("address")));
           }).catch(function (error) {
             return reject(error);
           });
         } else {
           // Search on address
-          _this18.getLatest(_this18.route.forTopic(target)).then(function (topic) {
+          _this19.getLatest(_this19.route.forTopic(target)).then(function (topic) {
             return resolve(topic);
           }).catch(function (error) {
             return reject(error);
@@ -1005,7 +1032,7 @@ function () {
   }, {
     key: "createPost",
     value: function createPost(content) {
-      var _this19 = this;
+      var _this20 = this;
 
       var references = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
       var parent = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : null;
@@ -1021,7 +1048,7 @@ function () {
         //TODO - Fix deterministic posting addresses
         //const postAccount = this.route.forNextPostBy(this.state.data.get("user"));
 
-        var postAccount = _this19.route.forNewPost(content);
+        var postAccount = _this20.route.forNewPost(content);
 
         var postAddress = postAccount.getAddress(); // Build post record
 
@@ -1037,7 +1064,7 @@ function () {
           depth: parent ? parent.get("depth") + 1 : 0 // Build reference payload and destination accounts
 
         };
-        var refAccounts = [_this19.route.forPostsBy(userAddress) //TODO - Add to other indexes for topics, mentions, links
+        var refAccounts = [_this20.route.forPostsBy(userAddress) //TODO - Add to other indexes for topics, mentions, links
         ];
         var refRecord = {
           record: "post",
@@ -1056,7 +1083,7 @@ function () {
 
         };
 
-        _this19.sendRecords(identity, [postAccount], postRecord, refAccounts, refRecord).then(function (result) {
+        _this20.sendRecords(identity, [postAccount], postRecord, refAccounts, refRecord).then(function (result) {
           return resolve((0, _immutable.fromJS)(postRecord));
         }).catch(function (error) {
           return reject(error);
@@ -1066,10 +1093,10 @@ function () {
   }, {
     key: "fetchPost",
     value: function fetchPost(address) {
-      var _this20 = this;
+      var _this21 = this;
 
       return new Promise(function (resolve, reject) {
-        _this20.getHistory(_this20.route.forPost(address)).then(function (postHistory) {
+        _this21.getHistory(_this21.route.forPost(address)).then(function (postHistory) {
           return resolve(postHistory.reduce(function (p, nxt) {
             // TODO - Merge edits and retractions
             //		  into a single cohesive map
@@ -1118,7 +1145,7 @@ function () {
   }, {
     key: "followUser",
     value: function followUser(followAddress) {
-      var _this21 = this;
+      var _this22 = this;
 
       var identity = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : this.user;
 
@@ -1130,14 +1157,14 @@ function () {
         // Get user data
         var userAddress = identity.account.getAddress(); // Build follow account payload
 
-        var followAccount = _this21.route.forFollowing(userAddress);
+        var followAccount = _this22.route.forFollowing(userAddress);
 
         var followRecord = {
           type: "follower index",
           address: userAddress
         }; // Build relation account and payload
 
-        var relationAccount = _this21.route.forRelationOf(userAddress, followAddress);
+        var relationAccount = _this22.route.forRelationOf(userAddress, followAddress);
 
         var relationRecord = {
           type: "follower record",
@@ -1145,14 +1172,14 @@ function () {
           follow: true
         }; // Build following payload
 
-        var followingAccount = _this21.route.forFollowsBy(userAddress);
+        var followingAccount = _this22.route.forFollowsBy(userAddress);
 
         var followingRecord = {
           type: "following index",
           address: followAddress
         }; // Store following record
 
-        _this21.sendRecords(identity, [followAccount], followRecord, [relationAccount], relationRecord, [followingAccount], followingRecord) //TODO - Alerts system
+        _this22.sendRecords(identity, [followAccount], followRecord, [relationAccount], relationRecord, [followingAccount], followingRecord) //TODO - Alerts system
         .then(function (result) {
           return resolve(result);
         }).catch(function (error) {

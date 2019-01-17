@@ -26,6 +26,7 @@ class PodiumError extends Error {
 
 	withCode(code) {
 		this.code = code;
+		this.message = this.report(code);
 		return this;
 	}
 

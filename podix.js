@@ -79,6 +79,7 @@ function (_Error) {
     key: "withCode",
     value: function withCode(code) {
       this.code = code;
+      this.message = this.report(code);
       return this;
     }
   }, {

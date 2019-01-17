@@ -312,6 +312,8 @@ function () {
       this.debug = debug;
 
       if (debug) {
+        console.log("Debug Mode On");
+
         _radixdlt.RadixLogger.setLevel('error');
       }
     } // TIMERS
@@ -706,7 +708,7 @@ function () {
           method: "POST",
           body: body
         }).then(function (result) {
-          return resolve(result);
+          return resolve((0, _immutable.fromJS)(result.json()));
         }).catch(function (error) {
           return reject(error);
         });

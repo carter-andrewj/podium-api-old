@@ -217,6 +217,7 @@ export default class Podix {
 	setDebug(debug) {
 		this.debug = debug;
 		if (debug) {
+			console.log("Debug Mode On")
 			RadixLogger.setLevel('error')
 		}
 	}
@@ -625,7 +626,9 @@ export default class Podix {
 					method: "POST",
 					body: body
 				})
-				.then(result => resolve(result))
+				.then(result => resolve(
+					fromJS(result.json())
+				))
 				.catch(error => reject(error))
 		})
 	}

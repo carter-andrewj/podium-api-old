@@ -269,7 +269,8 @@ function () {
       this.app = config.ApplicationID;
       this.timeout = config.Timeout;
       this.lifetime = config.Lifetime;
-      this.server = config.API;
+      this.server = config.API; // "https://" + config.API
+
       this.media = config.MediaStore; // Connect to radix network
       //TODO - Test radix connection
 
@@ -638,7 +639,7 @@ function () {
         var body = new FormData();
         body.append("file", mediaFile);
         body.append("address", address);
-        fetch("https://".concat(_this11.server, "/media"), {
+        fetch("".concat(_this11.server, "/media"), {
           method: "POST",
           body: body
         }).then(function (response) {
@@ -702,7 +703,7 @@ function () {
       var _this13 = this;
 
       return new Promise(function (resolve, reject) {
-        fetch("https://".concat(_this13.server, "/user"), {
+        fetch("".concat(_this13.server, "/user"), {
           method: "POST",
           body: {
             id: id,
@@ -925,7 +926,7 @@ function () {
           // Search on address
           _this16.getLatest(_this16.route.forProfileOf(target)).then(function (result) {
             var profile = result.update("picture", function (p) {
-              return "https://".concat(_this16.media, "/").concat(p);
+              return "".concat(_this16.media, "/").concat(p);
             });
             resolve(profile);
           }).catch(function (error) {

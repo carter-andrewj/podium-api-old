@@ -712,8 +712,8 @@ function () {
             bio: bio,
             picture: picture
           }
-        }).promise().then(function (response) {
-          console.log("Create User Response", response);
+        }).then(function (response) {
+          console.log("Response from Create User", response);
           resolve(response);
         }).catch(function (error) {
           return reject(error);

@@ -638,9 +638,8 @@ export default class Podix {
 						picture: picture
 					}
 				})
-				.promise()
 				.then(response => {
-					console.log("Create User Response", response)
+					console.log("Response from Create User", response)
 					resolve(response)
 				})
 				.catch(error => reject(error))

@@ -699,8 +699,8 @@ function () {
 
       return new Promise(function (resolve, reject) {
         var body = new FormData();
-        data.map(function (v, k) {
-          return body.append(k, v);
+        Object.keys(data).forEach(function (k) {
+          return body.append(k, data[k]);
         });
         fetch("".concat(_this13.server, "/").concat(route), body).then(function (result) {
           return resolve(result);

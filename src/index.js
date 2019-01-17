@@ -619,7 +619,8 @@ export default class Podix {
 	dispatch(route, data) {
 		return new Promise((resolve, reject) => {
 			const body = new FormData();
-			data.map((v, k) => body.append(k, v))
+			Object.keys(data)
+				.forEach(k => body.append(k, data[k]))
 			fetch(`${this.server}/${route}`, body)
 				.then(result => resolve(result))
 				.catch(error => reject(error))

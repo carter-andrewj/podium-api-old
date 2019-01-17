@@ -179,7 +179,7 @@ export default class Podix {
 		this.app = config.ApplicationID;
 		this.timeout = config.Timeout;
 		this.lifetime = config.Lifetime;
-		this.server = config.API;
+		this.server = config.API;	// "https://" + config.API
 		this.media = config.MediaStore;
 
 		// Connect to radix network
@@ -563,7 +563,7 @@ export default class Podix {
 			const body = new FormData()
 			body.append("file", mediaFile)
 			body.append("address", address)
-			fetch(`https://${this.server}/media`,
+			fetch(`${this.server}/media`,
 				{
 					method: "POST",
 					body: body
@@ -627,7 +627,7 @@ export default class Podix {
 		) {
 		return new Promise((resolve, reject) => {
 			fetch(
-				`https://${this.server}/user`,
+				`${this.server}/user`,
 				{
 					method: "POST",
 					body: {
@@ -830,7 +830,7 @@ export default class Podix {
 					.then(result => {
 						const profile = result.update(
 							"picture",
-							(p) => `https://${this.media}/${p}`
+							(p) => `${this.media}/${p}`
 						)
 						resolve(profile)
 					})

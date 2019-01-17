@@ -6,6 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "npx babel src --out-file podix.js",
+    "deploy": "npm publish --access=public",
     "deploy-patch": "npm version patch && npm publish --access=public",
     "deploy-minor": "npm version minor && npm publish --access=public",
     "deploy-major": "npm version major && npm publish --access=public"

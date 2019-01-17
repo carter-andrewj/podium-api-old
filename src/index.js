@@ -621,7 +621,10 @@ export default class Podix {
 			const body = new FormData();
 			Object.keys(data)
 				.forEach(k => body.append(k, data[k]))
-			fetch(`${this.server}/${route}`, body)
+			fetch(`${this.server}/${route}`, {
+					method: "POST",
+					body: body
+				})
 				.then(result => resolve(result))
 				.catch(error => reject(error))
 		})

@@ -702,7 +702,10 @@ function () {
         Object.keys(data).forEach(function (k) {
           return body.append(k, data[k]);
         });
-        fetch("".concat(_this13.server, "/").concat(route), body).then(function (result) {
+        fetch("".concat(_this13.server, "/").concat(route), {
+          method: "POST",
+          body: body
+        }).then(function (result) {
           return resolve(result);
         }).catch(function (error) {
           return reject(error);

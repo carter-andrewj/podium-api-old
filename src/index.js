@@ -673,8 +673,7 @@ export default class Podix {
 			pw,			// Password for new user account
 			name,		// Display name of new user account
 			bio,		// Bio of new user account
-			picture,	// Picture address (in media archive) of user's profile picture
-			setUser=false
+			picture		// Picture address (in media archive) of user's profile picture
 		) {
 
 		// Registers a new podium user.
@@ -714,6 +713,7 @@ export default class Podix {
 			let pictureAddress;
 			if (picture) {
 				pictureAddress = await this.createMedia(picture, identity)
+					.catch(error => reject(error))
 			}
 
 			// Generate user public record
@@ -776,13 +776,8 @@ export default class Podix {
 					)
 
 				})
-				//TODO - Add this user to the index database
 				//TODO - Auto-follow Podium master account
-				.then(result => {
-					if (setUser) { this.user = identity }
-					//TODO - Resolve with keypair
-					resolve(address)
-				})
+				.then(result => resolve(address))
 				.catch(error => reject(error))
 
 		});
@@ -794,16 +789,27 @@ export default class Podix {
 			id,		// User Identifier
 			pw 		// User password
 		) {
+		this.debugOut("Signing In: ", id, pw)
 		return new Promise((resolve, reject) => {
 			this.getLatest(this.route.forKeystoreOf(id, pw))
-				.then(encryptedKey => RadixKeyStore
-					.decryptKey(encryptedKey.toJS(), pw))
+				.then(encryptedKey => {
+					this.debugOut("Received Keypair")
+					return RadixKeyStore
+						.decryptKey(encryptedKey.toJS(), pw)
+				})
 				.then(keyPair => {
+					this.debugOut("Decrypted Keypair: ", keyPair)
 					this.user = new RadixSimpleIdentity(keyPair);
-					resolve(true);
+					resolve(this.user);
 				})
 				.catch(error => reject(error))
 		})
+	}
+
+
+	clearUser() {
+		this.cleanUp();
+		this.user = null;
 	}
 
 

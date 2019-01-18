@@ -756,10 +756,10 @@ function () {
     pw, // Password for new user account
     name, // Display name of new user account
     bio, // Bio of new user account
-    picture) {
+    picture // Picture address (in media archive) of user's profile picture
+    ) {
       var _this15 = this;
 
-      var setUser = arguments.length > 5 && arguments[5] !== undefined ? arguments[5] : false;
       // Registers a new podium user.
       // Podium users are represented on the ledger by 6 records
       //	1) Profile Record - stores information about the user,
@@ -804,7 +804,9 @@ function () {
                   }
 
                   _context3.next = 6;
-                  return _this15.createMedia(picture, identity);
+                  return _this15.createMedia(picture, identity).catch(function (error) {
+                    return reject(error);
+                  });
 
                 case 6:
                   pictureAddress = _context3.sent;
@@ -874,15 +876,9 @@ function () {
                     return function (_x4) {
                       return _ref2.apply(this, arguments);
                     };
-                  }()) //TODO - Add this user to the index database
-                  //TODO - Auto-follow Podium master account
+                  }()) //TODO - Auto-follow Podium master account
                   .then(function (result) {
-                    if (setUser) {
-                      _this15.user = identity;
-                    } //TODO - Resolve with keypair
-
-
-                    resolve(address);
+                    return resolve(address);
                   }).catch(function (error) {
                     return reject(error);
                   });
@@ -907,16 +903,27 @@ function () {
     ) {
       var _this16 = this;
 
+      this.debugOut("Signing In: ", id, pw);
       return new Promise(function (resolve, reject) {
         _this16.getLatest(_this16.route.forKeystoreOf(id, pw)).then(function (encryptedKey) {
+          _this16.debugOut("Received Keypair");
+
           return _radixdlt.RadixKeyStore.decryptKey(encryptedKey.toJS(), pw);
         }).then(function (keyPair) {
+          _this16.debugOut("Decrypted Keypair: ", keyPair);
+
           _this16.user = new _radixdlt.RadixSimpleIdentity(keyPair);
-          resolve(true);
+          resolve(_this16.user);
         }).catch(function (error) {
           return reject(error);
         });
       });
+    }
+  }, {
+    key: "clearUser",
+    value: function clearUser() {
+      this.cleanUp();
+      this.user = null;
     }
   }, {
     key: "updateUserIdentifier",

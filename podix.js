@@ -457,6 +457,7 @@ function () {
       var timeout = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : this.timeout;
       // Pulls all current values from a radix
       // -account- and closes the channel connection.
+      this.debugOut("Fetching Account History (timeout: " + timeout + ")");
       return new Promise(function (resolve, reject) {
         // Open the account connection
         account.openNodeConnection(); // Connect to account data
@@ -471,6 +472,8 @@ function () {
           //		 Currently, this just collates all
           //		 input until timeout.
           next: function next(item) {
+            _this7.debugOut(" > Received: ", item.data.payload);
+
             if (skipper) {
               clearTimeout(skipper);
             }
@@ -482,6 +485,8 @@ function () {
             // radix lib can flag a channel as up to date).
 
             skipper = setTimeout(function () {
+              _this7.debugOut(" > No record received for 1s. Resolving early.");
+
               channel.unsubscribe();
               resolve(history);
             }, 1000);
@@ -496,8 +501,12 @@ function () {
           channel.unsubscribe();
 
           if (history.size > 0) {
+            _this7.debugOut(" > Timed out. Resolving with current history.");
+
             resolve(history);
           } else {
+            _this7.debugOut(" > Timed out. No history received.");
+
             reject(new PodiumError().withCode(2));
           }
         }, timeout * 1000);

@@ -374,7 +374,7 @@ export default class Podix {
 
 		// Pulls all current values from a radix
 		// -account- and closes the channel connection.
-
+		this.debugOut("Fetching Account History (timeout: " + timeout + ")")
 		return new Promise((resolve, reject) => {
 
 			// Open the account connection
@@ -393,6 +393,7 @@ export default class Podix {
 				//		 Currently, this just collates all
 				//		 input until timeout.
 				next: item => {
+					this.debugOut(" > Received: ", item.data.payload)
 					if (skipper) { clearTimeout(skipper) }
 					var record = Map(fromJS(JSON.parse(item.data.payload)))
 						.set("received", (new Date()).getTime())
@@ -403,6 +404,7 @@ export default class Podix {
 					// efficient fix for the timeout issue until the
 					// radix lib can flag a channel as up to date).
 					skipper = setTimeout(() => {
+						this.debugOut(" > No record received for 1s. Resolving early.")
 						channel.unsubscribe()
 						resolve(history)
 					}, 1000);
@@ -418,8 +420,10 @@ export default class Podix {
 				() => {
 					channel.unsubscribe();
 					if (history.size > 0) {
+						this.debugOut(" > Timed out. Resolving with current history.")
 						resolve(history)
 					} else {
+						this.debugOut(" > Timed out. No history received.")
 						reject(new PodiumError().withCode(2))
 					}
 				},

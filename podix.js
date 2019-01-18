@@ -311,10 +311,19 @@ function () {
     value: function setDebug(debug) {
       this.debug = debug;
 
-      if (debug) {
-        console.log("Debug Mode On");
-
+      if (!debug) {
         _radixdlt.RadixLogger.setLevel('error');
+      } else {
+        console.log("Debug Mode On");
+      }
+    }
+  }, {
+    key: "debugOut",
+    value: function debugOut() {
+      if (this.debug) {
+        var _console;
+
+        (_console = console).log.apply(_console, arguments);
       }
     } // TIMERS
 
@@ -387,12 +396,14 @@ function () {
         if (accounts.length === 0) {
           reject(new Error("Received empty accounts array"));
         } else {
+          _this5.debugOut("Writing to Ledger (x", accounts.length, "):", payload);
+
           _radixdlt.RadixTransactionBuilder.createPayloadAtom(accounts, _this5.app, JSON.stringify(payload), encrypt).signAndSubmit(identity).subscribe({
             complete: function complete() {
               return resolve(true);
             },
             next: function next(status) {
-              return console.log(status);
+              return _this5.debugOut(" > ", status);
             },
             error: function error(_error) {
               return reject(_error);
@@ -732,21 +743,8 @@ function () {
           name: name,
           bio: bio,
           picture: picture
-        }) // const body = new FormData();
-        // body.append("id", id)
-        // body.append("pw", pw)
-        // body.append("name", name)
-        // body.append("bio", bio)
-        // body.append("picture", picture)
-        // fetch(
-        // 	`${this.server}/user`,
-        // 	{
-        // 		method: "POST",
-        // 		body: body
-        // 	})
-        .then(function (response) {
-          console.log("Response from Create User", response);
-          resolve(response);
+        }).then(function (response) {
+          return resolve(response);
         }).catch(function (error) {
           return reject(error);
         });
@@ -881,7 +879,8 @@ function () {
                   .then(function (result) {
                     if (setUser) {
                       _this15.user = identity;
-                    }
+                    } //TODO - Resolve with keypair
+
 
                     resolve(address);
                   }).catch(function (error) {

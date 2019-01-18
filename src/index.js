@@ -216,9 +216,16 @@ export default class Podix {
 
 	setDebug(debug) {
 		this.debug = debug;
-		if (debug) {
-			console.log("Debug Mode On")
+		if (!debug) {
 			RadixLogger.setLevel('error')
+		} else {
+			console.log("Debug Mode On")
+		}
+	}
+
+	debugOut() {
+		if (this.debug) {
+			console.log(...arguments)
 		}
 	}
 
@@ -303,6 +310,8 @@ export default class Podix {
 			if (accounts.length === 0) {
 				reject(new Error("Received empty accounts array"));
 			} else {
+				this.debugOut("Writing to Ledger (x",
+					accounts.length, "):", payload)
 				RadixTransactionBuilder
 					.createPayloadAtom(
 						accounts,
@@ -313,7 +322,7 @@ export default class Podix {
 					.signAndSubmit(identity)
 					.subscribe({
 						complete: () => resolve(true),
-						next: status => console.log(status),
+						next: status => this.debugOut(" > ", status),
 						error: error => reject(error)
 					});
 			}
@@ -654,22 +663,7 @@ export default class Podix {
 					bio: bio,
 					picture: picture
 				})
-			// const body = new FormData();
-			// body.append("id", id)
-			// body.append("pw", pw)
-			// body.append("name", name)
-			// body.append("bio", bio)
-			// body.append("picture", picture)
-			// fetch(
-			// 	`${this.server}/user`,
-			// 	{
-			// 		method: "POST",
-			// 		body: body
-			// 	})
-				.then(response => {
-					console.log("Response from Create User", response)
-					resolve(response)
-				})
+				.then(response => resolve(response))
 				.catch(error => reject(error))
 		})
 	}
@@ -786,6 +780,7 @@ export default class Podix {
 				//TODO - Auto-follow Podium master account
 				.then(result => {
 					if (setUser) { this.user = identity }
+					//TODO - Resolve with keypair
 					resolve(address)
 				})
 				.catch(error => reject(error))

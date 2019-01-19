@@ -805,9 +805,8 @@ function () {
     value: function newUser(id, // Podium @ ID of new user account
     pw, // Password for new user account
     name, // Display name of new user account
-    bio, // Bio of new user account
-    pictureAddress // Picture address (in media archive) of user's profile picture
-    ) {
+    bio) // Bio of new user account
+    {
       var _this16 = this;
 
       // Registers a new podium user.
@@ -855,7 +854,7 @@ function () {
                     id: id,
                     name: name,
                     bio: bio || "",
-                    picture: pictureAddress || "",
+                    picture: "",
                     address: address // Generate user POD account
 
                   };
@@ -932,12 +931,12 @@ function () {
       }());
     }
   }, {
-    key: "setUser",
-    value: function setUser(id, // User Identifier
-    pw // User password
-    ) {
+    key: "identity",
+    value: function identity(id, // User Identifier
+    pw) {
       var _this17 = this;
 
+      var setUser = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
       this.debugOut("Signing In: ", id, pw);
       return new Promise(function (resolve, reject) {
         _this17.getLatest(_this17.route.forKeystoreOf(id, pw)).then(function (encryptedKey) {
@@ -947,8 +946,13 @@ function () {
         }).then(function (keyPair) {
           _this17.debugOut("Decrypted Keypair: ", keyPair);
 
-          _this17.user = new _radixdlt.RadixSimpleIdentity(keyPair);
-          resolve(_this17.user);
+          var identity = new _radixdlt.RadixSimpleIdentity(keyPair);
+
+          if (setUser) {
+            _this17.user = identity;
+          }
+
+          resolve(identity);
         }).catch(function (error) {
           return reject(error);
         });

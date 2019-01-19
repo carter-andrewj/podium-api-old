@@ -714,7 +714,6 @@ export default class Podix {
 			pw,			// Password for new user account
 			name,		// Display name of new user account
 			bio,		// Bio of new user account
-			pictureAddress	// Picture address (in media archive) of user's profile picture
 		) {
 
 		// Registers a new podium user.
@@ -758,7 +757,7 @@ export default class Podix {
 				id: id,
 				name: name,
 				bio: bio || "",
-				picture: pictureAddress || "",
+				picture: "",
 				address: address
 			}
 
@@ -819,9 +818,10 @@ export default class Podix {
 	}
 
 
-	setUser(
+	identity(
 			id,		// User Identifier
-			pw 		// User password
+			pw, 	// User password
+			setUser=false
 		) {
 		this.debugOut("Signing In: ", id, pw)
 		return new Promise((resolve, reject) => {
@@ -833,8 +833,9 @@ export default class Podix {
 				})
 				.then(keyPair => {
 					this.debugOut("Decrypted Keypair: ", keyPair)
-					this.user = new RadixSimpleIdentity(keyPair);
-					resolve(this.user);
+					const identity = new RadixSimpleIdentity(keyPair);
+					if (setUser) { this.user = identity }
+					resolve(identity);
 				})
 				.catch(error => reject(error))
 		})

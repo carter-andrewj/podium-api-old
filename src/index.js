@@ -5,6 +5,8 @@ import { radixUniverse, RadixUniverse, RadixLogger,
 		 RadixSimpleIdentity, RadixIdentityManager,
 		 RadixKeyStore, RadixTransactionBuilder } from 'radixdlt';
 
+import FormData from 'form-data';
+
 
 
 

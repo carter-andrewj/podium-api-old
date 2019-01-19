@@ -15,6 +15,7 @@
   "license": "ISC",
   "dependencies": {
     "@babel/polyfill": "^7.2.5",
+    "form-data": "^2.3.3",
     "immutable": "^4.0.0-rc.12",
     "radixdlt": "^1.0.6-alpha"
   },

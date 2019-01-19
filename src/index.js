@@ -591,7 +591,7 @@ export default class Podix {
 	}
 
 
-	createMedia(
+	registerMedia(
 			file,
 			identity = this.user
 		) {
@@ -622,8 +622,25 @@ export default class Podix {
 			//TODO - Check if media already exists and skip
 			//		 this step, if required
 			this.sendRecord([mediaAccount], mediaPayload, identity)
-				.then(() => this.uploadMedia(file, fileAddress))
 				.then(() => resolve(fileAddress))
+				.catch(error => reject(error))
+
+		})
+	}
+
+
+	createMedia(
+			file,
+			identity = this.user
+		) {
+		if (!identity) { throw new Error("Missing Identity") }
+		return new Promise((resolve, reject) => {
+
+			// Register media on ledger
+			//TODO - Check if media already exists and skip
+			//		 this step, if required
+			this.registerMedia(file, identity)
+				.then(address => this.uploadMedia(file, address))
 				.catch(error => reject(error))
 
 		})
@@ -642,6 +659,13 @@ export default class Podix {
 			fetch(`${this.server}/${route}`, {
 					method: "POST",
 					body: body
+				})
+				.then(result => {
+					if (result.ok) {
+						return result
+					} else {
+						throw new Error("Request failed with status:" + result.status)
+					}
 				})
 				.then(result => {
 					const output = result.json();
@@ -683,7 +707,7 @@ export default class Podix {
 			pw,			// Password for new user account
 			name,		// Display name of new user account
 			bio,		// Bio of new user account
-			picture		// Picture address (in media archive) of user's profile picture
+			pictureAddress	// Picture address (in media archive) of user's profile picture
 		) {
 
 		// Registers a new podium user.
@@ -719,12 +743,12 @@ export default class Podix {
 			const identity = identityManager.generateSimpleIdentity();
 			const address = identity.account.getAddress();
 
-			//TODO - Store picture, if present
-			let pictureAddress;
-			if (picture) {
-				pictureAddress = await this.createMedia(picture, identity)
-					.catch(error => reject(error))
-			}
+			// //TODO - Store picture, if present
+			// let pictureAddress;
+			// if (picture) {
+			// 	pictureAddress = await this.createMedia(picture, identity)
+			// 		.catch(error => reject(error))
+			// }
 
 			// Generate user public record
 			const profileAccount = this.route.forProfileOf(address);

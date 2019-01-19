@@ -633,7 +633,7 @@ export default class Podix {
 	dispatch(route, data) {
 		this.debugOut(`Posting to ${this.server}/${route}:`, data)
 		return new Promise((resolve, reject) => {
-			const body = new FormData();
+			var body = new FormData();
 			Object.keys(data)
 				.forEach(k => body.append(k, data[k]))
 			fetch(`${this.server}/${route}`, {

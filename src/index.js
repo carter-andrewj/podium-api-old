@@ -926,7 +926,7 @@ export default class Podix {
 					.then(history => {
 						var profile = history.reduce((a, b) => a.mergeDeep(b))
 						resolve(profile.set("pictureURL",
-							`${this.media}/${profile.get("picture")}`))
+							`https://${this.media}/${profile.get("picture")}`))
 					})
 					.catch(error => reject(error))
 

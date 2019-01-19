@@ -1056,7 +1056,7 @@ function () {
             var profile = history.reduce(function (a, b) {
               return a.mergeDeep(b);
             });
-            resolve(profile.set("pictureURL", "".concat(_this19.media, "/").concat(profile.get("picture"))));
+            resolve(profile.set("pictureURL", "https://".concat(_this19.media, "/").concat(profile.get("picture"))));
           }).catch(function (error) {
             return reject(error);
           });

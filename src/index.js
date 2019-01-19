@@ -596,7 +596,8 @@ export default class Podix {
 
 
 	registerMedia(
-			file,
+			image,
+			ext,
 			identity = this.user
 		) {
 		if (!identity) { throw new Error("Missing Identity") }
@@ -606,27 +607,28 @@ export default class Podix {
 			//		 to detect image manipulation, etc...
 
 			// Register media on ledger
-			const address = identity.account.getAddress();
-			const fileAddress = this.route.forMedia(file).getAddress() + "." +
-				file.split(",")[0].split("/")[1].split(";")[0];
+			const address = identity.account.getAddress()
+			const imageAccount = this.route.forMedia(image)
+			const imageAddress = imageAccount.getAddress()
 
 			// Generate file record
 			//TODO - Ensure media address is independent of
 			//		 the uploading user so the same image
 			//		 uploaded by different users is still
 			//		 only stored once on S3.
-			const mediaAccount = this.route.forMediaFrom(address);
-			const mediaPayload = {
+			const imagePayload = {
 				record: "media",
 				type: "image",
-				address: fileAddress
+				address: imageAddress,
+				ext: ext,
+				uploader: address
 			}
 
 			// Register media on ledger
 			//TODO - Check if media already exists and skip
 			//		 this step, if required
-			this.sendRecord([mediaAccount], mediaPayload, identity)
-				.then(() => resolve(fileAddress))
+			this.sendRecord([imageAccount], imagePayload, identity)
+				.then(() => resolve(imageAddress))
 				.catch(error => reject(error))
 
 		})
@@ -634,7 +636,8 @@ export default class Podix {
 
 
 	createMedia(
-			file,
+			image,
+			ext,
 			identity = this.user
 		) {
 		if (!identity) { throw new Error("Missing Identity") }
@@ -643,8 +646,8 @@ export default class Podix {
 			// Register media on ledger
 			//TODO - Check if media already exists and skip
 			//		 this step, if required
-			this.registerMedia(file, identity)
-				.then(address => this.uploadMedia(file, address))
+			this.registerMedia(image, ext, identity)
+				.then(address => this.uploadMedia(image, address))
 				.catch(error => reject(error))
 
 		})
@@ -695,6 +698,7 @@ export default class Podix {
 		name,		// Display name of new user account
 		bio,		// Bio of new user account
 		picture,	// Picture, as base64 string
+		ext,
 		) {
 		return new Promise((resolve, reject) => {
 			this.dispatch("user", {
@@ -702,7 +706,8 @@ export default class Podix {
 					pw: pw,
 					name: name,
 					bio: bio,
-					picture: picture
+					picture: picture,
+					ext: ext
 				})
 				.then(response => resolve(response))
 				.catch(error => reject(error))
@@ -911,11 +916,11 @@ export default class Podix {
 
 				// Search on address
 				this.getHistory(this.route.forProfileOf(target))
-					.then(history => resolve(history
-						.reduce((a, b) => a.mergeDeep(b))
-						.update("picture",
-							(p) => (p === "") ? "" : `${this.media}/${p}`)
-					))
+					.then(history => {
+						var profile = history.reduce((a, b) => a.mergeDeep(b))
+						resolve(profile.set("pictureURL",
+							`${this.media}/${profile.get("picture")}.${profile.get("ext")}`))
+					})
 					.catch(error => reject(error))
 
 			}

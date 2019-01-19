@@ -683,10 +683,10 @@ function () {
     }
   }, {
     key: "registerMedia",
-    value: function registerMedia(file) {
+    value: function registerMedia(image, ext) {
       var _this12 = this;
 
-      var identity = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : this.user;
+      var identity = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : this.user;
 
       if (!identity) {
         throw new Error("Missing Identity");
@@ -697,25 +697,28 @@ function () {
         //		 to detect image manipulation, etc...
         // Register media on ledger
         var address = identity.account.getAddress();
-        var fileAddress = _this12.route.forMedia(file).getAddress() + "." + file.split(",")[0].split("/")[1].split(";")[0]; // Generate file record
+
+        var imageAccount = _this12.route.forMedia(image);
+
+        var imageAddress = imageAccount.getAddress(); // Generate file record
         //TODO - Ensure media address is independent of
         //		 the uploading user so the same image
         //		 uploaded by different users is still
         //		 only stored once on S3.
 
-        var mediaAccount = _this12.route.forMediaFrom(address);
-
-        var mediaPayload = {
+        var imagePayload = {
           record: "media",
           type: "image",
-          address: fileAddress // Register media on ledger
+          address: imageAddress,
+          ext: ext,
+          uploader: address // Register media on ledger
           //TODO - Check if media already exists and skip
           //		 this step, if required
 
         };
 
-        _this12.sendRecord([mediaAccount], mediaPayload, identity).then(function () {
-          return resolve(fileAddress);
+        _this12.sendRecord([imageAccount], imagePayload, identity).then(function () {
+          return resolve(imageAddress);
         }).catch(function (error) {
           return reject(error);
         });
@@ -723,10 +726,10 @@ function () {
     }
   }, {
     key: "createMedia",
-    value: function createMedia(file) {
+    value: function createMedia(image, ext) {
       var _this13 = this;
 
-      var identity = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : this.user;
+      var identity = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : this.user;
 
       if (!identity) {
         throw new Error("Missing Identity");
@@ -736,8 +739,8 @@ function () {
         // Register media on ledger
         //TODO - Check if media already exists and skip
         //		 this step, if required
-        _this13.registerMedia(file, identity).then(function (address) {
-          return _this13.uploadMedia(file, address);
+        _this13.registerMedia(image, ext, identity).then(function (address) {
+          return _this13.uploadMedia(image, address);
         }).catch(function (error) {
           return reject(error);
         });
@@ -782,8 +785,8 @@ function () {
     pw, // Password for new user account
     name, // Display name of new user account
     bio, // Bio of new user account
-    picture) // Picture, as base64 string
-    {
+    picture, // Picture, as base64 string
+    ext) {
       var _this15 = this;
 
       return new Promise(function (resolve, reject) {
@@ -792,7 +795,8 @@ function () {
           pw: pw,
           name: name,
           bio: bio,
-          picture: picture
+          picture: picture,
+          ext: ext
         }).then(function (response) {
           return resolve(response);
         }).catch(function (error) {
@@ -1044,11 +1048,10 @@ function () {
         } else {
           // Search on address
           _this19.getHistory(_this19.route.forProfileOf(target)).then(function (history) {
-            return resolve(history.reduce(function (a, b) {
+            var profile = history.reduce(function (a, b) {
               return a.mergeDeep(b);
-            }).update("picture", function (p) {
-              return p === "" ? "" : "".concat(_this19.media, "/").concat(p);
-            }));
+            });
+            resolve(profile.set("pictureURL", "".concat(_this19.media, "/").concat(profile.get("picture"), ".").concat(profile.get("ext"))));
           }).catch(function (error) {
             return reject(error);
           });

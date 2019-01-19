@@ -719,6 +719,7 @@ function () {
     value: function dispatch(route, data) {
       var _this13 = this;
 
+      this.debugOut("Posting to ".concat(this.server, "/").concat(route, ":"), data);
       return new Promise(function (resolve, reject) {
         var body = new FormData();
         Object.keys(data).forEach(function (k) {
@@ -728,7 +729,9 @@ function () {
           method: "POST",
           body: body
         }).then(function (result) {
-          return resolve((0, _immutable.fromJS)(result.json()));
+          _this13.debugOut(" > Response: ", result.json());
+
+          resolve((0, _immutable.fromJS)(result.json()));
         }).catch(function (error) {
           return reject(error);
         });

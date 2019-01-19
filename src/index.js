@@ -631,6 +631,7 @@ export default class Podix {
 // SERVER
 
 	dispatch(route, data) {
+		this.debugOut(`Posting to ${this.server}/${route}:`, data)
 		return new Promise((resolve, reject) => {
 			const body = new FormData();
 			Object.keys(data)
@@ -639,9 +640,10 @@ export default class Podix {
 					method: "POST",
 					body: body
 				})
-				.then(result => resolve(
-					fromJS(result.json())
-				))
+				.then(result => {
+					this.debugOut(" > Response: ", result.json())
+					resolve(fromJS(result.json()))
+				})
 				.catch(error => reject(error))
 		})
 	}

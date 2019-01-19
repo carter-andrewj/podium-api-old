@@ -494,7 +494,9 @@ function () {
               _this7.debugOut(" > No record received for 1s. Resolving early.");
 
               channel.unsubscribe();
-              resolve(history);
+              resolve(history.sort(function (a, b) {
+                return a.get("created") > b.get("created") ? 1 : -1;
+              }));
             }, 1000);
           },
           error: function error(_error2) {
@@ -509,7 +511,9 @@ function () {
           if (history.size > 0) {
             _this7.debugOut(" > Timed out. Resolving with current history.");
 
-            resolve(history);
+            resolve(history.sort(function (a, b) {
+              return a.get("created") > b.get("created") ? 1 : -1;
+            }));
           } else {
             _this7.debugOut(" > Timed out. No history received.");
 
@@ -842,13 +846,7 @@ function () {
                   // Create user identity
                   identityManager = new _radixdlt.RadixIdentityManager();
                   identity = identityManager.generateSimpleIdentity();
-                  address = identity.account.getAddress(); // //TODO - Store picture, if present
-                  // let pictureAddress;
-                  // if (picture) {
-                  // 	pictureAddress = await this.createMedia(picture, identity)
-                  // 		.catch(error => reject(error))
-                  // }
-                  // Generate user public record
+                  address = identity.account.getAddress(); // Generate user public record
 
                   profileAccount = _this16.route.forProfileOf(address);
                   profilePayload = {
@@ -970,14 +968,56 @@ function () {
     value: function swapUserIdentifiers() {} // USER PROFILES
 
   }, {
-    key: "updateUserDisplayName",
-    value: function updateUserDisplayName() {}
+    key: "updateProfileName",
+    value: function updateProfileName() {}
   }, {
-    key: "updateUserBio",
-    value: function updateUserBio() {}
+    key: "updateProfileBio",
+    value: function updateProfileBio() {}
   }, {
-    key: "updateUserPicture",
-    value: function updateUserPicture() {} //TODO - handle multiple simultaneous requests
+    key: "updateProfilePicture",
+    value: function updateProfilePicture(pictureAddress) {
+      var _this18 = this;
+
+      var identity = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : this.user;
+      return new Promise(
+      /*#__PURE__*/
+      function () {
+        var _ref3 = _asyncToGenerator(
+        /*#__PURE__*/
+        regeneratorRuntime.mark(function _callee4(resolve, reject) {
+          var address, profileAccount, profilePayload;
+          return regeneratorRuntime.wrap(function _callee4$(_context4) {
+            while (1) {
+              switch (_context4.prev = _context4.next) {
+                case 0:
+                  // Get user address
+                  address = identity.account.getAddress(); // Generate user public record
+
+                  profileAccount = _this18.route.forProfileOf(address);
+                  profilePayload = {
+                    picture: pictureAddress // Write record
+
+                  };
+
+                  _this18.sendRecord([profileAccount], profilePayload, identity).then(function () {
+                    return resolve();
+                  }).catch(function (error) {
+                    return reject(error);
+                  });
+
+                case 4:
+                case "end":
+                  return _context4.stop();
+              }
+            }
+          }, _callee4, this);
+        }));
+
+        return function (_x5, _x6) {
+          return _ref3.apply(this, arguments);
+        };
+      }());
+    } //TODO - handle multiple simultaneous requests
     //		 for the same record without multiple
     //		 calls to the network
 
@@ -985,25 +1025,26 @@ function () {
     key: "fetchProfile",
     value: function fetchProfile(target) // Set true if passing an ID instead of an address
     {
-      var _this18 = this;
+      var _this19 = this;
 
       var id = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
       return new Promise(function (resolve, reject) {
         // Search on ID or Address
         if (id) {
           // Search on ID
-          _this18.getLatest(_this18.route.forProfileWithID(target)).then(function (reference) {
-            return resolve(_this18.fetchProfile(reference.get("address")));
+          _this19.getLatest(_this19.route.forProfileWithID(target)).then(function (reference) {
+            return resolve(_this19.fetchProfile(reference.get("address")));
           }).catch(function (error) {
             return reject(error);
           });
         } else {
           // Search on address
-          _this18.getLatest(_this18.route.forProfileOf(target)).then(function (result) {
-            var profile = result.update("picture", function (p) {
-              return "".concat(_this18.media, "/").concat(p);
-            });
-            resolve(profile);
+          _this19.getHistory(_this19.route.forProfileOf(target)).then(function (history) {
+            return resolve(history.reduce(function (a, b) {
+              return a.mergeDeep(b);
+            }).update("picture", function (p) {
+              return p === "" ? "" : "".concat(_this19.media, "/").concat(p);
+            }));
           }).catch(function (error) {
             return reject(error);
           });
@@ -1017,7 +1058,7 @@ function () {
     name, // Display name of topic
     description, // Description of topic
     owner) {
-      var _this19 = this;
+      var _this20 = this;
 
       var identity = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : this.user;
 
@@ -1027,7 +1068,7 @@ function () {
 
       return new Promise(function (resolve, reject) {
         // Resolve topic address
-        var topicAccount = _this19.route.forTopicWithID(id);
+        var topicAccount = _this20.route.forTopicWithID(id);
 
         var topicAddress = topicAccount.getAddress(); // Build topic record
 
@@ -1042,7 +1083,7 @@ function () {
 
         };
 
-        _this19.sendRecord([topicAccount], topicRecord, identity) //TODO - Add topic to index database
+        _this20.sendRecord([topicAccount], topicRecord, identity) //TODO - Add topic to index database
         .then(function (result) {
           return resolve((0, _immutable.fromJS)(topicRecord));
         }).catch(function (error) {
@@ -1054,21 +1095,21 @@ function () {
     key: "fetchTopic",
     value: function fetchTopic(target) // Set true if passing an ID instead of an address
     {
-      var _this20 = this;
+      var _this21 = this;
 
       var id = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
       return new Promise(function (resolve, reject) {
         // Search on ID or Address
         if (id) {
           // Search on ID
-          _this20.getLatest(_this20.route.forTopicWithID(target)).then(function (reference) {
-            return resolve(_this20.fetchTopic(reference.get("address")));
+          _this21.getLatest(_this21.route.forTopicWithID(target)).then(function (reference) {
+            return resolve(_this21.fetchTopic(reference.get("address")));
           }).catch(function (error) {
             return reject(error);
           });
         } else {
           // Search on address
-          _this20.getLatest(_this20.route.forTopic(target)).then(function (topic) {
+          _this21.getLatest(_this21.route.forTopic(target)).then(function (topic) {
             return resolve(topic);
           }).catch(function (error) {
             return reject(error);
@@ -1080,7 +1121,7 @@ function () {
   }, {
     key: "createPost",
     value: function createPost(content) {
-      var _this21 = this;
+      var _this22 = this;
 
       var references = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
       var parent = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : null;
@@ -1096,7 +1137,7 @@ function () {
         //TODO - Fix deterministic posting addresses
         //const postAccount = this.route.forNextPostBy(this.state.data.get("user"));
 
-        var postAccount = _this21.route.forNewPost(content);
+        var postAccount = _this22.route.forNewPost(content);
 
         var postAddress = postAccount.getAddress(); // Build post record
 
@@ -1112,7 +1153,7 @@ function () {
           depth: parent ? parent.get("depth") + 1 : 0 // Build reference payload and destination accounts
 
         };
-        var refAccounts = [_this21.route.forPostsBy(userAddress) //TODO - Add to other indexes for topics, mentions, links
+        var refAccounts = [_this22.route.forPostsBy(userAddress) //TODO - Add to other indexes for topics, mentions, links
         ];
         var refRecord = {
           record: "post",
@@ -1131,7 +1172,7 @@ function () {
 
         };
 
-        _this21.sendRecords(identity, [postAccount], postRecord, refAccounts, refRecord).then(function (result) {
+        _this22.sendRecords(identity, [postAccount], postRecord, refAccounts, refRecord).then(function (result) {
           return resolve((0, _immutable.fromJS)(postRecord));
         }).catch(function (error) {
           return reject(error);
@@ -1141,10 +1182,10 @@ function () {
   }, {
     key: "fetchPost",
     value: function fetchPost(address) {
-      var _this22 = this;
+      var _this23 = this;
 
       return new Promise(function (resolve, reject) {
-        _this22.getHistory(_this22.route.forPost(address)).then(function (postHistory) {
+        _this23.getHistory(_this23.route.forPost(address)).then(function (postHistory) {
           return resolve(postHistory.reduce(function (p, nxt) {
             // TODO - Merge edits and retractions
             //		  into a single cohesive map
@@ -1193,7 +1234,7 @@ function () {
   }, {
     key: "followUser",
     value: function followUser(followAddress) {
-      var _this23 = this;
+      var _this24 = this;
 
       var identity = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : this.user;
 
@@ -1205,14 +1246,14 @@ function () {
         // Get user data
         var userAddress = identity.account.getAddress(); // Build follow account payload
 
-        var followAccount = _this23.route.forFollowing(userAddress);
+        var followAccount = _this24.route.forFollowing(userAddress);
 
         var followRecord = {
           type: "follower index",
           address: userAddress
         }; // Build relation account and payload
 
-        var relationAccount = _this23.route.forRelationOf(userAddress, followAddress);
+        var relationAccount = _this24.route.forRelationOf(userAddress, followAddress);
 
         var relationRecord = {
           type: "follower record",
@@ -1220,14 +1261,14 @@ function () {
           follow: true
         }; // Build following payload
 
-        var followingAccount = _this23.route.forFollowsBy(userAddress);
+        var followingAccount = _this24.route.forFollowsBy(userAddress);
 
         var followingRecord = {
           type: "following index",
           address: followAddress
         }; // Store following record
 
-        _this23.sendRecords(identity, [followAccount], followRecord, [relationAccount], relationRecord, [followingAccount], followingRecord) //TODO - Alerts system
+        _this24.sendRecords(identity, [followAccount], followRecord, [relationAccount], relationRecord, [followingAccount], followingRecord) //TODO - Alerts system
         .then(function (result) {
           return resolve(result);
         }).catch(function (error) {

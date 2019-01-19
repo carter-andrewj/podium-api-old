@@ -409,7 +409,9 @@ export default class Podix {
 					skipper = setTimeout(() => {
 						this.debugOut(" > No record received for 1s. Resolving early.")
 						channel.unsubscribe()
-						resolve(history)
+						resolve(history.sort((a, b) =>
+							(a.get("created") > b.get("created")) ? 1 : -1
+						))
 					}, 1000);
 				},
 				error: error => {
@@ -424,7 +426,9 @@ export default class Podix {
 					channel.unsubscribe();
 					if (history.size > 0) {
 						this.debugOut(" > Timed out. Resolving with current history.")
-						resolve(history)
+						resolve(history.sort((a, b) =>
+							(a.get("created") > b.get("created")) ? 1 : -1
+						))
 					} else {
 						this.debugOut(" > Timed out. No history received.")
 						reject(new PodiumError().withCode(2))
@@ -746,13 +750,6 @@ export default class Podix {
 			const identity = identityManager.generateSimpleIdentity();
 			const address = identity.account.getAddress();
 
-			// //TODO - Store picture, if present
-			// let pictureAddress;
-			// if (picture) {
-			// 	pictureAddress = await this.createMedia(picture, identity)
-			// 		.catch(error => reject(error))
-			// }
-
 			// Generate user public record
 			const profileAccount = this.route.forProfileOf(address);
 			const profilePayload = {
@@ -861,11 +858,32 @@ export default class Podix {
 
 // USER PROFILES
 
-	updateUserDisplayName() {}
+	updateProfileName() {}
 
-	updateUserBio() {}
+	updateProfileBio() {}
 
-	updateUserPicture() {}
+	updateProfilePicture(
+			pictureAddress,
+			identity=this.user
+		) {
+		return new Promise(async (resolve, reject) => {
+
+			// Get user address
+			const address = identity.account.getAddress();
+			
+			// Generate user public record
+			const profileAccount = this.route.forProfileOf(address);
+			const profilePayload = {
+				picture: pictureAddress,
+			}
+
+			// Write record
+			this.sendRecord([profileAccount], profilePayload, identity)
+				.then(() => resolve())
+				.catch(error => reject(error))
+
+		})
+	}
 
 
 	//TODO - handle multiple simultaneous requests
@@ -891,14 +909,12 @@ export default class Podix {
 			} else {
 
 				// Search on address
-				this.getLatest(this.route.forProfileOf(target))
-					.then(result => {
-						const profile = result.update(
-							"picture",
-							(p) => `${this.media}/${p}`
-						)
-						resolve(profile)
-					})
+				this.getHistory(this.route.forProfileOf(target))
+					.then(history => resolve(history
+						.reduce((a, b) => a.mergeDeep(b))
+						.update("picture",
+							(p) => (p === "") ? "" : `${this.media}/${p}`)
+					))
 					.catch(error => reject(error))
 
 			}

@@ -178,6 +178,8 @@ export default class Podix {
 
 	connect(config) {
 		
+		console.log(config)
+
 		// Extract settings from config
 		this.app = config.ApplicationID;
 		this.timeout = config.Timeout;
@@ -749,6 +751,9 @@ export default class Podix {
 
 		// Create output promise
 		return new Promise(async (resolve, reject) => {
+
+			//TODO - Ensure user does not already exist
+
 
 			// Create user identity
 			const identityManager = new RadixIdentityManager();

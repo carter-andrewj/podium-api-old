@@ -271,7 +271,8 @@ function () {
   _createClass(Podix, [{
     key: "connect",
     value: function connect(config) {
-      // Extract settings from config
+      console.log(config); // Extract settings from config
+
       this.app = config.ApplicationID;
       this.timeout = config.Timeout;
       this.lifetime = config.Lifetime;
@@ -847,6 +848,7 @@ function () {
             while (1) {
               switch (_context3.prev = _context3.next) {
                 case 0:
+                  //TODO - Ensure user does not already exist
                   // Create user identity
                   identityManager = new _radixdlt.RadixIdentityManager();
                   identity = identityManager.generateSimpleIdentity();

@@ -644,8 +644,9 @@ export default class Podix {
 					body: body
 				})
 				.then(result => {
-					this.debugOut(" > Response: ", result.json())
-					resolve(fromJS(result.json()))
+					const output = result.json();
+					this.debugOut(" > Response: ", output)
+					resolve(fromJS(output))
 				})
 				.catch(error => reject(error))
 		})

@@ -735,9 +735,11 @@ function () {
           method: "POST",
           body: body
         }).then(function (result) {
-          _this13.debugOut(" > Response: ", result.json());
+          var output = result.json();
 
-          resolve((0, _immutable.fromJS)(result.json()));
+          _this13.debugOut(" > Response: ", output);
+
+          resolve((0, _immutable.fromJS)(output));
         }).catch(function (error) {
           return reject(error);
         });

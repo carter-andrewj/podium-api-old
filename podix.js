@@ -11,7 +11,7 @@ var _radixdlt = require("radixdlt");
 
 var _formData = _interopRequireDefault(require("form-data"));
 
-var _nodeFetch = require("node-fetch");
+var _nodeFetch = _interopRequireDefault(require("node-fetch"));
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -252,11 +252,11 @@ function () {
 
     if (!config) {
       this.server = "https://api.podium-network.com";
-      (0, _nodeFetch.fetch)(this.server).then(function (response) {
+      (0, _nodeFetch.default)(this.server).then(function (response) {
         if (!response.ok) {
           throw new PodiumError("Server Offline").withCode(0);
         } else {
-          (0, _nodeFetch.fetch)(_this2.server + "/config").then(function (response) {
+          (0, _nodeFetch.default)(_this2.server + "/config").then(function (response) {
             return response.json();
           }).then(function (config) {
             return _this2.connect(config);
@@ -731,7 +731,7 @@ function () {
         Object.keys(data).forEach(function (k) {
           return body.append(k, data[k]);
         });
-        (0, _nodeFetch.fetch)("".concat(_this13.server, "/").concat(route), {
+        (0, _nodeFetch.default)("".concat(_this13.server, "/").concat(route), {
           method: "POST",
           body: body
         }).then(function (result) {

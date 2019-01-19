@@ -6,7 +6,7 @@ import { radixUniverse, RadixUniverse, RadixLogger,
 		 RadixKeyStore, RadixTransactionBuilder } from 'radixdlt';
 
 import FormData from 'form-data';
-import { fetch } from 'node-fetch';
+import fetch from 'node-fetch';
 
 
 

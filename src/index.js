@@ -624,7 +624,6 @@ export default class Podix {
 				ext: ext,
 				uploader: address
 			}
-			
 
 			// Register media on ledger
 			//TODO - Check if media already exists and skip

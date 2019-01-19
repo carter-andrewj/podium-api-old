@@ -700,7 +700,8 @@ function () {
 
         var imageAccount = _this12.route.forMedia(image);
 
-        var imageAddress = imageAccount.getAddress(); // Generate file record
+        var imageAddress = imageAccount.getAddress();
+        var imageURL = "".concat(imageAddress, ".").concat(ext); // Generate file record
         //TODO - Ensure media address is independent of
         //		 the uploading user so the same image
         //		 uploaded by different users is still
@@ -718,7 +719,7 @@ function () {
         };
 
         _this12.sendRecord([imageAccount], imagePayload, identity).then(function () {
-          return resolve(imageAddress);
+          return resolve(imageURL);
         }).catch(function (error) {
           return reject(error);
         });
@@ -950,13 +951,13 @@ function () {
         }).then(function (keyPair) {
           _this17.debugOut("Decrypted Keypair: ", keyPair);
 
-          var identity = new _radixdlt.RadixSimpleIdentity(keyPair);
+          var ident = new _radixdlt.RadixSimpleIdentity(keyPair);
 
           if (setUser) {
-            _this17.user = identity;
+            _this17.user = ident;
           }
 
-          resolve(identity);
+          resolve(ident);
         }).catch(function (error) {
           return reject(error);
         });

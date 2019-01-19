@@ -610,6 +610,7 @@ export default class Podix {
 			const address = identity.account.getAddress()
 			const imageAccount = this.route.forMedia(image)
 			const imageAddress = imageAccount.getAddress()
+			const imageURL = `${imageAddress}.${ext}`
 
 			// Generate file record
 			//TODO - Ensure media address is independent of
@@ -623,12 +624,13 @@ export default class Podix {
 				ext: ext,
 				uploader: address
 			}
+			
 
 			// Register media on ledger
 			//TODO - Check if media already exists and skip
 			//		 this step, if required
 			this.sendRecord([imageAccount], imagePayload, identity)
-				.then(() => resolve(imageAddress))
+				.then(() => resolve(imageURL))
 				.catch(error => reject(error))
 
 		})
@@ -838,9 +840,9 @@ export default class Podix {
 				})
 				.then(keyPair => {
 					this.debugOut("Decrypted Keypair: ", keyPair)
-					const identity = new RadixSimpleIdentity(keyPair);
-					if (setUser) { this.user = identity }
-					resolve(identity);
+					const ident = new RadixSimpleIdentity(keyPair);
+					if (setUser) { this.user = ident }
+					resolve(ident);
 				})
 				.catch(error => reject(error))
 		})

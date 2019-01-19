@@ -445,6 +445,8 @@ function () {
           if (args.length > 2) {
             _this6.sendRecords.apply(_this6, [identity].concat(_toConsumableArray(args.slice(2, args.length)))).then(function (result) {
               return resolve(result);
+            }).catch(function (error) {
+              return reject(error);
             });
           } else {
             resolve(true);
@@ -1054,7 +1056,7 @@ function () {
             var profile = history.reduce(function (a, b) {
               return a.mergeDeep(b);
             });
-            resolve(profile.set("pictureURL", "".concat(_this19.media, "/").concat(profile.get("picture"), ".").concat(profile.get("ext"))));
+            resolve(profile.set("pictureURL", "".concat(_this19.media, "/").concat(profile.get("picture"))));
           }).catch(function (error) {
             return reject(error);
           });

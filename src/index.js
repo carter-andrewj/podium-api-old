@@ -358,6 +358,7 @@ export default class Podix {
 					if (args.length > 2) {
 						this.sendRecords(identity, ...args.slice(2, args.length))
 							.then(result => resolve(result))
+							.catch(error => reject(error))
 					} else {
 						resolve(true)
 					}
@@ -925,7 +926,7 @@ export default class Podix {
 					.then(history => {
 						var profile = history.reduce((a, b) => a.mergeDeep(b))
 						resolve(profile.set("pictureURL",
-							`${this.media}/${profile.get("picture")}.${profile.get("ext")}`))
+							`${this.media}/${profile.get("picture")}`))
 					})
 					.catch(error => reject(error))
 

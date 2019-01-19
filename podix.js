@@ -778,7 +778,7 @@ function () {
     pw, // Password for new user account
     name, // Display name of new user account
     bio, // Bio of new user account
-    picture) // Picture address (in media archive) of user's profile picture
+    picture) // Picture, as base64 string
     {
       var _this15 = this;
 
@@ -856,8 +856,8 @@ function () {
                     type: "profile",
                     id: id,
                     name: name,
-                    bio: bio,
-                    picture: pictureAddress,
+                    bio: bio || "",
+                    picture: pictureAddress || "",
                     address: address // Generate user POD account
 
                   };

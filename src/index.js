@@ -648,6 +648,9 @@ export default class Podix {
 
 
 
+
+
+
 // SERVER
 
 	dispatch(route, data) {
@@ -687,7 +690,7 @@ export default class Podix {
 		pw,			// Password for new user account
 		name,		// Display name of new user account
 		bio,		// Bio of new user account
-		picture,	// Picture address (in media archive) of user's profile picture
+		picture,	// Picture, as base64 string
 		) {
 		return new Promise((resolve, reject) => {
 			this.dispatch("user", {
@@ -757,8 +760,8 @@ export default class Podix {
 				type: "profile",
 				id: id,
 				name: name,
-				bio: bio,
-				picture: pictureAddress,
+				bio: bio || "",
+				picture: pictureAddress || "",
 				address: address
 			}
 

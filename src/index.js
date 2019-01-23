@@ -399,12 +399,21 @@ export default class Podix {
 				//		 Currently, this just collates all
 				//		 input until timeout.
 				next: item => {
+
+					// Log debug
 					this.debugOut(" > Received: ", item.data.payload)
+
+					// Cancel shortcut timer
 					if (skipper) { clearTimeout(skipper) }
+
+					// Unpack record
 					var record = Map(fromJS(JSON.parse(item.data.payload)))
 						.set("received", (new Date()).getTime())
 						.set("created", item.data.timestamp);
+
+					// Add record to history
 					history = history.push(record);
+
 					// Assume all records collated 1 second after first
 					// (This won't work long-term, but serves as an
 					// efficient fix for the timeout issue until the
@@ -416,6 +425,7 @@ export default class Podix {
 							(a.get("created") > b.get("created")) ? 1 : -1
 						))
 					}, 1000);
+
 				},
 				error: error => {
 					channel.unsubscribe();
@@ -1085,12 +1095,12 @@ export default class Podix {
 
 				// Collate post history into a single object
 				.then(postHistory => postHistory
-					.reduce((p, nxt) => {
+					.reduce((p, next) => {
 						// TODO - Merge edits and retractions
 						//		  into a single cohesive map
 						const created = Math.min(p.get("created"), next.get("created"))
 						const latest = Math.max(p.get("created"), next.get("created"))
-						return p.mergeDeep(nxt)
+						return p.mergeDeep(next)
 							.set("created", created)
 							.set("latest", latest)
 					}, Map({}))

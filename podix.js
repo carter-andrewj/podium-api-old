@@ -481,13 +481,17 @@ function () {
           //		 Currently, this just collates all
           //		 input until timeout.
           next: function next(item) {
-            _this7.debugOut(" > Received: ", item.data.payload);
+            // Log debug
+            _this7.debugOut(" > Received: ", item.data.payload); // Cancel shortcut timer
+
 
             if (skipper) {
               clearTimeout(skipper);
-            }
+            } // Unpack record
 
-            var record = (0, _immutable.Map)((0, _immutable.fromJS)(JSON.parse(item.data.payload))).set("received", new Date().getTime()).set("created", item.data.timestamp);
+
+            var record = (0, _immutable.Map)((0, _immutable.fromJS)(JSON.parse(item.data.payload))).set("received", new Date().getTime()).set("created", item.data.timestamp); // Add record to history
+
             history = history.push(record); // Assume all records collated 1 second after first
             // (This won't work long-term, but serves as an
             // efficient fix for the timeout issue until the
@@ -1201,12 +1205,12 @@ function () {
       return new Promise(function (resolve, reject) {
         _this23.getHistory(_this23.route.forPost(address)) // Collate post history into a single object
         .then(function (postHistory) {
-          return postHistory.reduce(function (p, nxt) {
+          return postHistory.reduce(function (p, next) {
             // TODO - Merge edits and retractions
             //		  into a single cohesive map
             var created = Math.min(p.get("created"), next.get("created"));
             var latest = Math.max(p.get("created"), next.get("created"));
-            return p.mergeDeep(nxt).set("created", created).set("latest", latest);
+            return p.mergeDeep(next).set("created", created).set("latest", latest);
           }, (0, _immutable.Map)({}));
         }) // Handle errors
         .catch(function (error) {

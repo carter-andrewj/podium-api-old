@@ -1050,8 +1050,7 @@ function () {
         if (id) {
           // Search on ID
           _this19.getLatest(_this19.route.forProfileWithID(target)).then(function (reference) {
-            console.log("Fetch profile from ID", reference.toJS());
-            resolve(_this19.fetchProfile(reference.get("address")));
+            return resolve(_this19.fetchProfile(reference.get("owner")));
           }).catch(function (error) {
             return reject(error);
           });
@@ -1120,7 +1119,7 @@ function () {
         if (id) {
           // Search on ID
           _this21.getLatest(_this21.route.forTopicWithID(target)).then(function (reference) {
-            return resolve(_this21.fetchTopic(reference.get("address")));
+            return resolve(_this21.fetchTopic(reference.get("owner")));
           }).catch(function (error) {
             return reject(error);
           });

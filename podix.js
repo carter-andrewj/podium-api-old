@@ -1208,8 +1208,21 @@ function () {
           return postHistory.reduce(function (p, next) {
             // TODO - Merge edits and retractions
             //		  into a single cohesive map
-            var created = Math.min(p.get("created"), next.get("created"));
-            var latest = Math.max(p.get("created"), next.get("created"));
+            var lastTime = p.get("created");
+            var nextTime = next.get("created");
+            var created;
+            var latest;
+
+            if (lastTime && nextTime) {
+              created = Math.min(lastTime, nextTime);
+              latest = Math.max(lastTime, nextTime);
+            } else {
+              created = lastTime || nextTime;
+              latest = lastTime || nextTime;
+            }
+
+            console.log(p.toJS(), next.toJS());
+            console.log(lastTime, nextTime, created, latest);
             var out = p.mergeDeep(next).set("created", created).set("latest", latest);
             console.log("Post output:", out.toJS());
             return out;

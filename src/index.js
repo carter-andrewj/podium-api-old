@@ -1098,8 +1098,19 @@ export default class Podix {
 					.reduce((p, next) => {
 						// TODO - Merge edits and retractions
 						//		  into a single cohesive map
-						const created = Math.min(p.get("created"), next.get("created"))
-						const latest = Math.max(p.get("created"), next.get("created"))
+						const lastTime = p.get("created")
+						const nextTime = next.get("created")
+						let created;
+						let latest;
+						if (lastTime && nextTime) {
+							created = Math.min(lastTime, nextTime)
+							latest = Math.max(lastTime, nextTime)
+						} else {
+							created = lastTime || nextTime
+							latest = lastTime || nextTime
+						}
+						console.log(p.toJS(), next.toJS())
+						console.log(lastTime, nextTime, created, latest)
 						const out = p.mergeDeep(next)
 							.set("created", created)
 							.set("latest", latest)

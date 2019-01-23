@@ -914,9 +914,12 @@ export default class Podix {
 
 				// Search on ID
 				this.getLatest(this.route.forProfileWithID(target))
-					.then(reference => resolve(
-						this.fetchProfile(reference.get("address"))
-					))
+					.then(reference => {
+						console.log("Fetch profile from ID", reference)
+						resolve(
+							this.fetchProfile(reference.get("address"))
+						)
+					})
 					.catch(error => reject(error))
 
 			} else {
@@ -1034,7 +1037,8 @@ export default class Podix {
 				content: content,
 				address: postAddress,
 				author: userAddress,
-				parent: (parent) ? parent.get("address") : null,			
+				parent: (parent) ? parent.get("address") : null,
+				grandparent: (parent) ? parent.get("parent") : null,			
 				origin: (parent) ? parent.get("origin") : postAddress,
 				depth: (parent) ? parent.get("depth") + 1 : 0
 			}
@@ -1078,17 +1082,23 @@ export default class Podix {
 	fetchPost(address) {
 		return new Promise((resolve, reject) => {
 			this.getHistory(this.route.forPost(address))
-				.then(postHistory => resolve(
-					postHistory.reduce(
-						(p, nxt) => {
-							// TODO - Merge edits and retractions
-							//		  into a single cohesive map
-							return p.mergeDeep(nxt);
-						},
-						Map({})
-					)
-				))
+
+				// Collate post history into a single object
+				.then(postHistory => postHistory
+					.reduce((p, nxt) => {
+						// TODO - Merge edits and retractions
+						//		  into a single cohesive map
+						const created = Math.min(p.get("created"), next.get("created"))
+						const latest = Math.max(p.get("created"), next.get("created"))
+						return p.mergeDeep(nxt)
+							.set("created", created)
+							.set("latest", latest)
+					}, Map({}))
+				)
+
+				// Handle errors
 				.catch(error => reject(error))
+
 		})
 	}
 

@@ -1046,7 +1046,8 @@ function () {
         if (id) {
           // Search on ID
           _this19.getLatest(_this19.route.forProfileWithID(target)).then(function (reference) {
-            return resolve(_this19.fetchProfile(reference.get("address")));
+            console.log("Fetch profile from ID", reference);
+            resolve(_this19.fetchProfile(reference.get("address")));
           }).catch(function (error) {
             return reject(error);
           });
@@ -1161,6 +1162,7 @@ function () {
           address: postAddress,
           author: userAddress,
           parent: parent ? parent.get("address") : null,
+          grandparent: parent ? parent.get("parent") : null,
           origin: parent ? parent.get("origin") : postAddress,
           depth: parent ? parent.get("depth") + 1 : 0 // Build reference payload and destination accounts
 
@@ -1197,13 +1199,17 @@ function () {
       var _this23 = this;
 
       return new Promise(function (resolve, reject) {
-        _this23.getHistory(_this23.route.forPost(address)).then(function (postHistory) {
-          return resolve(postHistory.reduce(function (p, nxt) {
+        _this23.getHistory(_this23.route.forPost(address)) // Collate post history into a single object
+        .then(function (postHistory) {
+          return postHistory.reduce(function (p, nxt) {
             // TODO - Merge edits and retractions
             //		  into a single cohesive map
-            return p.mergeDeep(nxt);
-          }, (0, _immutable.Map)({})));
-        }).catch(function (error) {
+            var created = Math.min(p.get("created"), next.get("created"));
+            var latest = Math.max(p.get("created"), next.get("created"));
+            return p.mergeDeep(nxt).set("created", created).set("latest", latest);
+          }, (0, _immutable.Map)({}));
+        }) // Handle errors
+        .catch(function (error) {
           return reject(error);
         });
       });

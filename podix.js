@@ -1211,7 +1211,7 @@ function () {
             var created = Math.min(p.get("created"), next.get("created"));
             var latest = Math.max(p.get("created"), next.get("created"));
             var out = p.mergeDeep(next).set("created", created).set("latest", latest);
-            console.log("Post output:", out);
+            console.log("Post output:", out.toJS());
             return out;
           }, (0, _immutable.Map)({}));
         }) // Handle errors

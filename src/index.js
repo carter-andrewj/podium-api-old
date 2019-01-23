@@ -1103,7 +1103,7 @@ export default class Podix {
 						const out = p.mergeDeep(next)
 							.set("created", created)
 							.set("latest", latest)
-						console.log("Post output:", out)
+						console.log("Post output:", out.toJS())
 						return out
 					}, Map({}))
 				)

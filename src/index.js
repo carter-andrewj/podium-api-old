@@ -1095,10 +1095,12 @@ export default class Podix {
 
 				// Collate post history into a single object
 				.then(postHistory => postHistory
-					.reduce((p, next) => {
+					.reduce((post, next) => {
 						// TODO - Merge edits and retractions
 						//		  into a single cohesive map
-						const lastTime = p.get("created")
+
+						// Collate timestamps
+						const lastTime = post.get("created")
 						const nextTime = next.get("created")
 						let created;
 						let latest;
@@ -1109,13 +1111,14 @@ export default class Podix {
 							created = lastTime || nextTime
 							latest = lastTime || nextTime
 						}
-						console.log(p.toJS(), next.toJS())
-						console.log(lastTime, nextTime, created, latest)
-						const out = p.mergeDeep(next)
+
+						// Return completed post
+						resolve(post
+							.mergeDeep(next)
 							.set("created", created)
 							.set("latest", latest)
-						console.log("Post output:", out.toJS())
-						return out
+						)
+
 					}, Map({}))
 				)
 

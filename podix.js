@@ -1205,10 +1205,11 @@ function () {
       return new Promise(function (resolve, reject) {
         _this23.getHistory(_this23.route.forPost(address)) // Collate post history into a single object
         .then(function (postHistory) {
-          return postHistory.reduce(function (p, next) {
+          return postHistory.reduce(function (post, next) {
             // TODO - Merge edits and retractions
             //		  into a single cohesive map
-            var lastTime = p.get("created");
+            // Collate timestamps
+            var lastTime = post.get("created");
             var nextTime = next.get("created");
             var created;
             var latest;
@@ -1219,13 +1220,10 @@ function () {
             } else {
               created = lastTime || nextTime;
               latest = lastTime || nextTime;
-            }
+            } // Return completed post
 
-            console.log(p.toJS(), next.toJS());
-            console.log(lastTime, nextTime, created, latest);
-            var out = p.mergeDeep(next).set("created", created).set("latest", latest);
-            console.log("Post output:", out.toJS());
-            return out;
+
+            resolve(post.mergeDeep(next).set("created", created).set("latest", latest));
           }, (0, _immutable.Map)({}));
         }) // Handle errors
         .catch(function (error) {

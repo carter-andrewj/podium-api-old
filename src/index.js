@@ -107,6 +107,12 @@ class Routes {
 	forNewPost(post) {
 		return getAccount("podium-post-with-content-" + post);
 	}
+	forRepliesToPost(address) {
+		return getAccount("podium-replies-to-post-" + address)
+	}
+	forPromotionsOfPost(address) {
+		return getAccount("podium-promotions-of-post-" + address)
+	}
 	
 
 	// Media
@@ -875,9 +881,6 @@ export default class Podix {
 	updateUserIdentifier() {}
 
 
-	swapUserIdentifiers() {}
-
-
 	changePassword() {}
 
 
@@ -1028,6 +1031,8 @@ export default class Podix {
 				address: topicAddress
 			}
 
+			//TODO - Topic ownership record
+
 			// Store topic
 			this.sendRecord([topicAccount], topicRecord, identity)
 				//TODO - Add topic to index database
@@ -1126,7 +1131,7 @@ export default class Podix {
 					const address = ref.get("address")
 					switch(ref.get("type")) {
 						case ("topic"):
-							return this.route.forMentionsOfTopic(address)
+							return this.route.forPostsAboutTopic(address)
 						//TODO - Links and other references
 						//TODO - Mentions of users...?
 						default:
@@ -1263,7 +1268,6 @@ export default class Podix {
 
 		});
 
-
 	}
 
 
@@ -1307,21 +1311,33 @@ export default class Podix {
 	}
 
 
+	fetchRepliesTo(address) {
+		return new Promise((resolve, reject) => {
+			this.getHistory(this.route.forRepliesToPost(address))
+				.then(replies => replies
+					.map(r => r.get("address"))
+					.toList()
+				)
+				.then(replies => resolve(replies))
+				.catch(error => reject(error))
+		})
+	}
+
+
+	fetchPromotionsOf(address) {
+		return new Promise((resolve, reject) => {
+			this.getHistory(this.route.forPromosOfPost(address))
+				.then(promos => resolve(promos))
+				.catch(error => reject(error))
+		})
+	}
+
+
 	listenPosts(address, callback) {
 		this.openChannel(
 			this.route.forPostsBy(address),
 			callback
 		);
-	}
-
-
-	promotePost(
-			address, 	// Radix address of post to be promoted
-			promoter,	// Radix address of user promoting said post
-			pod,		// Podium spent promoting the post
-			aud = 0		// Audium spent promoting the post
-		) {
-		console.log("PROMOTED POST ", address);
 	}
 
 
@@ -1353,7 +1369,7 @@ export default class Podix {
 
 	listenFollow(address, callback) {
 		this.openChannel(
-			this.route.forUsersFollowedBy(address),
+			this.route.forUsersFollowsBy(address),
 			callback
 		);
 	}
@@ -1372,7 +1388,7 @@ export default class Podix {
 			const userAddress = identity.account.getAddress();
 
 			// Build follow account payload
-			const followAccount = this.route.forFollowing(userAddress);
+			const followAccount = this.route.forUsersFollowing(userAddress);
 			const followRecord = {
 				record: "follower",
 				type: "index",
@@ -1389,7 +1405,7 @@ export default class Podix {
 			}
 
 			// Build following payload
-			const followingAccount = this.route.forFollowsBy(userAddress);
+			const followingAccount = this.route.forUsersFollowedBy(userAddress);
 			const followingRecord = {
 				type: "following",
 				type: "index",
@@ -1421,7 +1437,7 @@ export default class Podix {
 	}
 
 
-	getUsersFollowed(
+	fetchUsersFollowed(
 			identity = this.user
 		) {
 		return new Promise((resolve, reject) => {
@@ -1430,7 +1446,7 @@ export default class Podix {
 			const userAddress = identity.account.getAddress()
 
 			// Get location for records of followed users
-			const followAccount = this.route.forFollowsBy(userAddress)
+			const followAccount = this.route.forUsersFollowedBy(userAddress)
 
 			// Load followers
 			this.getHistory(followAccount)
@@ -1450,11 +1466,11 @@ export default class Podix {
 	}
 
 
-	getUsersFollowing(address) {
+	fetchUsersFollowing(address) {
 		return new Promise((resolve, reject) => {
 
 			// Get location for records of followed users
-			const followingAccount = this.route.forFollowing(address)
+			const followingAccount = this.route.forUsersFollowing(address)
 
 			// Load following users
 			this.getHistory(followingAccount, identity)

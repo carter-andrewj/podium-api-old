@@ -925,7 +925,7 @@ export default class Podix {
 				// Search on ID
 				this.getLatest(this.route.forProfileWithID(target))
 					.then(reference => {
-						console.log("Fetch profile from ID", reference)
+						console.log("Fetch profile from ID", reference.toJS())
 						resolve(
 							this.fetchProfile(reference.get("address"))
 						)

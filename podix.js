@@ -1050,7 +1050,7 @@ function () {
         if (id) {
           // Search on ID
           _this19.getLatest(_this19.route.forProfileWithID(target)).then(function (reference) {
-            console.log("Fetch profile from ID", reference);
+            console.log("Fetch profile from ID", reference.toJS());
             resolve(_this19.fetchProfile(reference.get("address")));
           }).catch(function (error) {
             return reject(error);

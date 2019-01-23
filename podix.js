@@ -1210,7 +1210,9 @@ function () {
             //		  into a single cohesive map
             var created = Math.min(p.get("created"), next.get("created"));
             var latest = Math.max(p.get("created"), next.get("created"));
-            return p.mergeDeep(next).set("created", created).set("latest", latest);
+            var out = p.mergeDeep(next).set("created", created).set("latest", latest);
+            console.log("Post output:", out);
+            return out;
           }, (0, _immutable.Map)({}));
         }) // Handle errors
         .catch(function (error) {

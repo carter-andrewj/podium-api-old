@@ -1100,9 +1100,11 @@ export default class Podix {
 						//		  into a single cohesive map
 						const created = Math.min(p.get("created"), next.get("created"))
 						const latest = Math.max(p.get("created"), next.get("created"))
-						return p.mergeDeep(next)
+						const out = p.mergeDeep(next)
 							.set("created", created)
 							.set("latest", latest)
+						console.log("Post output:", out)
+						return out
 					}, Map({}))
 				)
 

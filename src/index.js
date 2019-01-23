@@ -774,7 +774,7 @@ export default class Podix {
 			// Generate user public record
 			const profileAccount = this.route.forProfileOf(address);
 			const profilePayload = {
-				record: "user",
+				record: "profile",
 				type: "profile",
 				id: id,
 				name: name,
@@ -810,6 +810,8 @@ export default class Podix {
 			// Generate record of this user's address owning this ID
 			const ownershipAccount = this.route.forProfileWithID(id);
 			const ownershipPayload = {
+				record: "ownership",
+				type: "username",
 				id: id,
 				owner: address
 			};
@@ -876,14 +878,63 @@ export default class Podix {
 	swapUserIdentifiers() {}
 
 
+	changePassword() {}
+
+
 
 
 
 // USER PROFILES
 
-	updateProfileName() {}
+	updateProfileName(
+			name,
+			identity=this.user
+		) {
+		return new Promise(async (resolve, reject) => {
 
-	updateProfileBio() {}
+			// Get user address
+			const address = identity.account.getAddress();
+			
+			// Generate user public record
+			const profileAccount = this.route.forProfileOf(address);
+			const profilePayload = {
+				record: "profile",
+				type: "image",
+				name: name
+			}
+
+			// Write record
+			this.sendRecord([profileAccount], profilePayload, identity)
+				.then(() => resolve())
+				.catch(error => reject(error))
+
+		})
+	}
+
+	updateProfileBio(
+			bio,
+			identity=this.user
+		) {
+		return new Promise(async (resolve, reject) => {
+
+			// Get user address
+			const address = identity.account.getAddress();
+			
+			// Generate user public record
+			const profileAccount = this.route.forProfileOf(address);
+			const profilePayload = {
+				record: "profile",
+				type: "bio",
+				bio: bio
+			}
+
+			// Write record
+			this.sendRecord([profileAccount], profilePayload, identity)
+				.then(() => resolve())
+				.catch(error => reject(error))
+
+		})
+	}
 
 	updateProfilePicture(
 			pictureAddress,
@@ -897,7 +948,9 @@ export default class Podix {
 			// Generate user public record
 			const profileAccount = this.route.forProfileOf(address);
 			const profilePayload = {
-				picture: pictureAddress,
+				record: "profile",
+				type: "image",
+				picture: pictureAddress
 			}
 
 			// Write record
@@ -1039,49 +1092,177 @@ export default class Podix {
 
 			// Build post record
 			const postRecord = {
-				record: "post",		// origin, amendment, retraction
+
+				record: "post",
 				type: "post",
+
 				content: content,
 				address: postAddress,
+
 				author: userAddress,
 				parent: (parent) ? parent.get("address") : null,
-				grandparent: (parent) ? parent.get("parent") : null,			
+				grandparent: (parent) ? parent.get("parent") : null,
+
 				origin: (parent) ? parent.get("origin") : postAddress,
-				depth: (parent) ? parent.get("depth") + 1 : 0
+				depth: (parent) ? parent.get("depth") + 1 : 0,
+
+				mentions: references
+					.filter(ref => ref.get("type") === "mention")
+					.map(ref => ref.get("address"))
+					.toList()
+					.toJS(),
+				topics: references
+					.filter(ref => ref.get("type") === "topics")
+					.map(ref => ref.get("address"))
+					.toList()
+					.toJS(),
+				media: []
+
 			}
 
-			// Build reference payload and destination accounts
-			const refAccounts = [
-				this.route.forPostsBy(userAddress)
-				//TODO - Add to other indexes for topics, mentions, links
+			// Build destination accounts for references
+			const refAccounts = references
+				.map(ref => {
+					const address = ref.get("address")
+					switch(ref.get("type")) {
+						case ("topic"):
+							return this.route.forMentionsOfTopic(address)
+						//TODO - Links and other references
+						//TODO - Mentions of users...?
+						default:
+							return List()
+					}
+				})
+				.toList()
+
+			// Build destination accounts for index record
+			const indexAccounts = [
+				this.route.forPostsBy(userAddress),
+				...replyIndex,
+				...refAccounts,
 			];
-			const refRecord = {
+			const indexRecord = {
 				record: "post",
-				type: "reference",
+				type: "index",
 				address: postAddress
 			}
 
 			// Build alert payload
-			//TODO - build alerts system
-			// const alertAccounts = []
-			// const alertRecord = {
-			// 	record: "alert",
-			// 	type: "mention",
-			// 	address: postAddress,
-			// 	by: userAddress
-			// 	created: time
-			// }
+			const mentionAccounts = references
+				//.filter(ref => ref.get("address") !== userAddress)
+				.map(ref => {
+					const address = ref.get("address")
+					switch(ref.get("type")) {
+						case ("mention"):
+							return this.route.forAlertsTo(address)
+						default:
+							return List()
+					}
+				})
+				.toList()
+			const mentionRecord = {
+				record: "alert",
+				type: "mention",
+				post: postAddress,
+				user: userAddress
+			}
+
+			// Check if post is a reply
+			if (parent) {
+
+				// Build reply index
+				const replyAccount = this.route
+					.forRepliesToPost(parent.get("address"))
+
+				// Build reply alert
+				const replyAlertAccount = this.route
+					.forAlertsTo(parent.get("author"))
+				const replyAlertRecord = {
+					record: "alert",
+					type: "reply",
+					post: postAddress,
+					user: userAddress
+				}
+
+				// Store records in ledger
+				this.sendRecords(
+						identity,
+						[postAccount], postRecord,
+						[replyAccount, ...indexAccounts], indexRecord,
+						mentionAccounts, mentionRecord,
+						[replyAlertAccount], replyAlertRecord
+					)
+					.then(result => resolve(fromJS(postRecord)))
+					.catch(error => reject(error))
+
+			// ...otherwise, send the basic records
+			} else {
+
+				// Store records in ledger
+				this.sendRecords(
+						identity,
+						[postAccount], postRecord,
+						indexAccounts, indexRecord,
+						mentionAccounts, mentionRecord
+					)
+					.then(result => resolve(fromJS(postRecord)))
+					.catch(error => reject(error))
+
+			}
+
+		});
+
+	}
+
+
+	promotePost(
+			postAddress,	// Address of the promoted post
+			authorAddress	// Address of the post's author
+		) {
+		if (!identity) { throw new Error("Missing Identity") }
+		return new Promise((resolve, reject) => {
+
+			// Get user data
+			const userAddress = identity.account.getAddress();
+
+			// Get account for the promoting user's posts
+			const postAccount = this.route.forPostsBy(userAddress)
+			const postRecord = {
+				record: "post",
+				type: "promotion",
+				address: postAddress
+			}
+
+			// Get account for logging promotions of target post
+			const promoteAccount = this.route.forPromosOfPost(postAddress)
+			const promoteRecord = {
+				record: "post",
+				type: "promotion",
+				address: postAddress,
+				by: userAddress
+			}
+
+			// Build alert payload
+			const alertAccount = this.route.forAlertsTo(authorAddress)
+			const alertRecord = {
+				record: "alert",
+				type: "promotion",
+				post: postAddress,
+				user: userAddress
+			}
 
 			// Store records in ledger
 			this.sendRecords(
 					identity,
 					[postAccount], postRecord,
-					refAccounts, refRecord
+					[promoteAccount], promoteRecord,
+					[alertAccount], alertRecord
 				)
 				.then(result => resolve(fromJS(postRecord)))
 				.catch(error => reject(error))
 
 		});
+
 
 	}
 
@@ -1185,37 +1366,51 @@ export default class Podix {
 		if (identity) { throw new Error("Missing Identity") }
 		return new Promise((resolve, reject) => {
 
+			//TODO - Check user is not already following the subject user
+
 			// Get user data
 			const userAddress = identity.account.getAddress();
 
 			// Build follow account payload
 			const followAccount = this.route.forFollowing(userAddress);
 			const followRecord = {
-				type: "follower index",
+				record: "follower",
+				type: "index",
 				address: userAddress,
 			};
 
 			// Build relation account and payload
 			const relationAccount = this.route.forRelationOf(userAddress, followAddress);
 			const relationRecord = {
-				type: "follower record",
+				record: "follower",
+				type: "relation",
 				users: [userAddress, followAddress],
-				follow: true,
-			};
+				following: true,
+			}
 
 			// Build following payload
 			const followingAccount = this.route.forFollowsBy(userAddress);
 			const followingRecord = {
-				type: "following index",
+				type: "following",
+				type: "index",
 				address: followAddress,
 			};
+
+			// Build alert payload
+			const alertAccount = this.route.forAlertsTo(followAddress)
+			const alertRecord = {
+				record: "alert",
+				type: "follow",
+				user: userAddress
+			}
 
 			// Store following record
 			this.sendRecords(
 					identity,
 					[followAccount], followRecord,
 					[relationAccount], relationRecord,
-					[followingAccount], followingRecord
+					[followingAccount], followingRecord,
+					[alertAccount], alertRecord
 				)
 				//TODO - Alerts system
 				.then((result) => resolve(result))
@@ -1226,8 +1421,96 @@ export default class Podix {
 	}
 
 
-	unfollowUser() {}
+	getUsersFollowed(
+			identity = this.user
+		) {
+		return new Promise((resolve, reject) => {
+
+			// Get user data
+			const userAddress = identity.account.getAddress()
+
+			// Get location for records of followed users
+			const followAccount = this.route.forFollowsBy(userAddress)
+
+			// Load followers
+			this.getHistory(followAccount)
+				.then(followed => followed
+					.filter(async f => {
+						const relationAccount =this.route
+							.forRelationOf(userAddress, f.get("address"))
+						return await this.getLatest(relationAccount)
+							.then(relation => relation.get("following"))
+							.catch(error => reject(error))
+					})
+				)
+				.then(followed => resolve(followed))
+				.catch(error => reject(error))
+
+		})
+	}
+
+
+	getUsersFollowing(address) {
+		return new Promise((resolve, reject) => {
+
+			// Get location for records of followed users
+			const followingAccount = this.route.forFollowing(address)
+
+			// Load following users
+			this.getHistory(followingAccount, identity)
+				.then(followed => followed
+					.filter(async f => {
+						const relationAccount = this.route
+							.forRelationOf(address, f.get("address"))
+						return await this.getLatest(relationAccount)
+							.then(relation => relation.get("follow"))
+							.catch(error => reject(error))
+					})
+				)
+				.then(followed => resolve(followed))
+				.catch(error => reject(error))
+
+		})
+	}
+
+
+	unfollowUser(
+			followAddress,
+			identity=this.user
+		) {
+		if (identity) { throw new Error("Missing Identity") }
+		return new Promise((resolve, reject) => {
+
+			//TODO - Check user is currently following the user to be unfollowed
+
+			// Get user data
+			const userAddress = identity.account.getAddress();
+
+			// Build relation account and payload
+			const relationAccount = this.route.forRelationOf(userAddress, followAddress);
+			const relationRecord = {
+				record: "follower",
+				type: "relation",
+				users: [userAddress, followAddress],
+				follow: false,
+			}
+
+			// Store following record
+			this.sendRecord([relationAccount], relationRecord, identity)
+				//TODO - Alerts system
+				.then((result) => resolve(result))
+				.catch(error => reject(error))
+
+		})
+	}
 
 
 }
+
+
+
+
+
+
+
 

@@ -1379,7 +1379,7 @@ export default class Podix {
 			followAddress,	// Address of user now being followed by active user
 			identity=this.user
 		) {
-		if (identity) { throw new Error("Missing Identity") }
+		if (!identity) { throw new Error("Missing Identity") }
 		return new Promise((resolve, reject) => {
 
 			//TODO - Check user is not already following the subject user
@@ -1489,7 +1489,7 @@ export default class Podix {
 			followAddress,
 			identity=this.user
 		) {
-		if (identity) { throw new Error("Missing Identity") }
+		if (!identity) { throw new Error("Missing Identity") }
 		return new Promise((resolve, reject) => {
 
 			//TODO - Check user is currently following the user to be unfollowed

@@ -1505,7 +1505,7 @@ function () {
 
       var identity = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : this.user;
 
-      if (identity) {
+      if (!identity) {
         throw new Error("Missing Identity");
       }
 
@@ -1668,7 +1668,7 @@ function () {
 
       var identity = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : this.user;
 
-      if (identity) {
+      if (!identity) {
         throw new Error("Missing Identity");
       }
 

@@ -1496,7 +1496,7 @@ function () {
   }, {
     key: "listenFollow",
     value: function listenFollow(address, callback) {
-      this.openChannel(this.route.forUsersFollowsBy(address), callback);
+      this.openChannel(this.route.forUsersFollowedBy(address), callback);
     }
   }, {
     key: "followUser",

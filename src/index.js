@@ -1369,7 +1369,7 @@ export default class Podix {
 
 	listenFollow(address, callback) {
 		this.openChannel(
-			this.route.forUsersFollowsBy(address),
+			this.route.forUsersFollowedBy(address),
 			callback
 		);
 	}

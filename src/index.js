@@ -1437,23 +1437,18 @@ export default class Podix {
 	}
 
 
-	fetchUsersFollowed(
-			identity = this.user
-		) {
+	fetchUsersFollowed(address) {
 		return new Promise((resolve, reject) => {
 
-			// Get user data
-			const userAddress = identity.account.getAddress()
-
 			// Get location for records of followed users
-			const followAccount = this.route.forUsersFollowedBy(userAddress)
+			const followAccount = this.route.forUsersFollowedBy(address)
 
 			// Load followers
 			this.getHistory(followAccount)
 				.then(followed => followed
 					.filter(async f => {
 						const relationAccount =this.route
-							.forRelationOf(userAddress, f.get("address"))
+							.forRelationOf(address, f.get("address"))
 						return await this.getLatest(relationAccount)
 							.then(relation => relation.get("following"))
 							.catch(error => reject(error))
@@ -1473,7 +1468,7 @@ export default class Podix {
 			const followingAccount = this.route.forUsersFollowing(address)
 
 			// Load following users
-			this.getHistory(followingAccount, identity)
+			this.getHistory(followingAccount)
 				.then(followed => followed
 					.filter(async f => {
 						const relationAccount = this.route

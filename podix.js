@@ -1559,15 +1559,12 @@ function () {
     }
   }, {
     key: "fetchUsersFollowed",
-    value: function fetchUsersFollowed() {
+    value: function fetchUsersFollowed(address) {
       var _this30 = this;
 
-      var identity = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : this.user;
       return new Promise(function (resolve, reject) {
-        // Get user data
-        var userAddress = identity.account.getAddress(); // Get location for records of followed users
-
-        var followAccount = _this30.route.forUsersFollowedBy(userAddress); // Load followers
+        // Get location for records of followed users
+        var followAccount = _this30.route.forUsersFollowedBy(address); // Load followers
 
 
         _this30.getHistory(followAccount).then(function (followed) {
@@ -1582,7 +1579,7 @@ function () {
                 while (1) {
                   switch (_context7.prev = _context7.next) {
                     case 0:
-                      relationAccount = _this30.route.forRelationOf(userAddress, f.get("address"));
+                      relationAccount = _this30.route.forRelationOf(address, f.get("address"));
                       _context7.next = 3;
                       return _this30.getLatest(relationAccount).then(function (relation) {
                         return relation.get("following");
@@ -1622,7 +1619,7 @@ function () {
         var followingAccount = _this31.route.forUsersFollowing(address); // Load following users
 
 
-        _this31.getHistory(followingAccount, identity).then(function (followed) {
+        _this31.getHistory(followingAccount).then(function (followed) {
           return followed.filter(
           /*#__PURE__*/
           function () {

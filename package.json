@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "npx babel src --out-dir lib",
-    "build-local": "npm run build && cp podix.js ../client/src/podixLocal.js",
+    "build-local": "npm run build && rm -rfv ../client/src/podix/* && cp -a lib/. ../client/src/podix/",
     "deploy": "npm publish --access=public",
     "deploy-patch": "npm version patch && npm publish --access=public",
     "deploy-minor": "npm version minor && npm publish --access=public",

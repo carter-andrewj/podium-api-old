@@ -1,9 +1,9 @@
-import { Map, List } from 'immutable';
+import { Record, Map, List } from 'immutable';
 
 import { RadixSimpleIdentity, RadixKeyStore, RadixLogger } from 'radixdlt';
 
 
-export default class PodiumUser {
+export default class PodiumUser extends Record {
 
 
 	constructor(
@@ -279,6 +279,13 @@ export default class PodiumUser {
 
 // POSTS
 
+	onFollow(callback) {
+		this.podium.openChannel(
+			this.podium.route.forPostsBy(this.address),
+			callback
+		);
+	}
+
 	createPost(
 			content,			// Content of new post
 			references = [],	// References contained in new post
@@ -496,17 +503,9 @@ export default class PodiumUser {
 
 // FOLLOWING
 
-	forEachUserFollowed(callback) {
+	onFollow(callback) {
 		this.podium.openChannel(
 			this.podium.route.forUsersFollowedBy(this.address),
-			callback
-		);
-	}
-
-
-	forEachFollower(callback) {
-		this.podium.openChannel(
-			this.podium.route.forUsersFollowing(this.address),
 			callback
 		);
 	}
@@ -633,10 +632,13 @@ export default class PodiumUser {
 
 			// Load followers
 			this.podium.getHistory(followAccount)
-				.then(followed => followed.filter(
+				.then(followers => followers.filter(
 					async f => await this.isFollowedBy(f.get("address"))
 				))
-				.then(followed => resolve(followed))
+				.then(followers => {
+					this.followers = followers
+					resolve(followers)
+				})
 				.catch(error => reject(error))
 
 		})

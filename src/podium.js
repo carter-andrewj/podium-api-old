@@ -1,4 +1,4 @@
-import { Map, List, fromJS } from 'immutable';
+import { Record, Map, List, fromJS } from 'immutable';
 
 import FormData from 'form-data';
 import fetch from 'node-fetch';
@@ -16,7 +16,7 @@ import { getAccount } from 'utils';
 
 
 
-export default class Podium {
+export default class Podium extends Record {
 
 
 

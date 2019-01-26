@@ -8,9 +8,9 @@ import { radixUniverse, RadixUniverse, RadixLogger,
 		 RadixSimpleIdentity, RadixIdentityManager,
 		 RadixKeyStore, RadixTransactionBuilder } from 'radixdlt';
 
-import PodiumUser from 'podiumUser';
-import PodiumError from 'podiumError';
-import PodiumRoutes from 'podiumRoutes';
+import PodiumUser from './podiumUser';
+import PodiumError from './podiumError';
+import PodiumRoutes from './podiumRoutes';
 
 import { getAccount } from 'utils';
 

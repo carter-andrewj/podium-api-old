@@ -1,4 +1,6 @@
-import { getAccount } from 'utils';
+import { RadixAccount } from 'radixdlt';
+
+import { getAccount } from './utils';
 
 
 

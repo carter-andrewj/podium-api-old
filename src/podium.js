@@ -1,4 +1,4 @@
-import { Record, Map, List, fromJS } from 'immutable';
+import { Map, List, fromJS } from 'immutable';
 
 import FormData from 'form-data';
 import fetch from 'node-fetch';
@@ -12,17 +12,17 @@ import PodiumUser from './podiumUser';
 import PodiumError from './podiumError';
 import PodiumRoutes from './podiumRoutes';
 
-import { getAccount } from 'utils';
+import { getAccount } from './utils';
 
 
 
-export default class Podium extends Record {
+export default class Podium {
 
 
 
 // INITIALIZATION
 
-	constructor(config = false, debug = false) {
+	constructor(config) {
 
 		// Set up global variables
 		this.route = new PodiumRoutes();
@@ -30,7 +30,7 @@ export default class Podium extends Record {
 		this.timers = Map({});
 
 		// Set logging level
-		this.setDebug(debug);
+		this.setDebug(config.DebugMode);
 
 		// Load remote config if none supplied
 		if (!config) {
@@ -101,6 +101,7 @@ export default class Podium extends Record {
 		} else {
 			console.log("Debug Mode On")
 		}
+		RadixLogger.setLevel('silent')
 	}
 
 	debugOut() {
@@ -532,7 +533,7 @@ export default class Podium extends Record {
 					picture: picture,
 					ext: ext
 				})
-				.then(response => resolve(this.getUser(id, pw)))
+				.then(response => resolve(this.user(id, pw)))
 				.catch(error => reject(error))
 		})
 	}
@@ -643,16 +644,20 @@ export default class Podium extends Record {
 
 				})
 				//TODO - Auto-follow Podium master account
-				.then(result => resolve(this.getUser(id, pw)))
+				.then(result => resolve(this.user(id, pw)))
 				.catch(error => reject(error))
 
 		});
 
 	}
 
-	withUser(id, pw) {
-		return new PodiumUser(id, pw, this, {
-			debug: this.debug
+	user(id, pw) {
+		return new Promise((resolve, reject) => {
+			(new PodiumUser(this))
+				.setDebug(this.debug)
+				.signIn(id, pw)
+				.then(u => resolve(u))
+				.catch(error => reject(error))
 		})
 	}
 

@@ -1,28 +1,27 @@
-import { Record, Map, List } from 'immutable';
+import { Record, Map, List, fromJS } from 'immutable';
 
 import { RadixSimpleIdentity, RadixKeyStore, RadixLogger } from 'radixdlt';
 
+import PodiumError from './podiumError';
 
-export default class PodiumUser extends Record {
+import { filterAsync } from './utils';
 
 
-	constructor(
-			id,		// User Identifier
-			pw, 	// User password
-			podium,
-			config=Map({})
-		) {
 
-		// Set podium
-		this.podium = podium
-		this.config = config
+export default class PodiumUser extends Record({
+		debug: false,
+		podium: false,
+		identity: null,
+		address: null,
+		cache: {}
+	}) {
 
-		// Set debug
-		this.setDebug(config.get("debug"))
 
-		// Sign in
-		return this.signIn(id, pw)
-
+	constructor(podium) {
+		super({
+			podium: podium,
+			cache: {}		// Mutable object for storing recent queries
+		})
 	}
 
 
@@ -45,9 +44,10 @@ export default class PodiumUser extends Record {
 				.then(keyPair => {
 					this.debugOut("Decrypted Keypair: ", keyPair)
 					const ident = new RadixSimpleIdentity(keyPair);
-					this.identity = ident
-					this.address = ident.account.getAddress()
-					resolve(this)
+					resolve(this
+						.set("identity", ident)
+						.set("address", ident.account.getAddress())
+					)
 				})
 
 				// Handle errors
@@ -61,12 +61,7 @@ export default class PodiumUser extends Record {
 // DEBUG
 
 	setDebug(debug) {
-		this.debug = debug;
-		if (!debug) {
-			RadixLogger.setLevel('error')
-		} else {
-			console.log("Debug Mode On")
-		}
+		this.set("debug", debug);
 		return this
 	}
 
@@ -93,16 +88,12 @@ export default class PodiumUser extends Record {
 
 // USER PROFILES
 
-	getProfile() {
+	profile() {
 		return new Promise((resolve, reject) => {
-			if (this.profile) {
-				resolve(this.profile)
-			} else {
-				this.debugOut("Fetching Profile...")
-				this.podium.fetchProfile(this.address)
-					.then(profile => resolve(profile))
-					.catch(error => reject(error))
-			}
+			this.debugOut("Fetching Profile...")
+			this.podium.fetchProfile(this.address)
+				.then(profile => resolve(profile))
+				.catch(error => reject(error))
 		})
 	}
 
@@ -279,7 +270,7 @@ export default class PodiumUser extends Record {
 
 // POSTS
 
-	onFollow(callback) {
+	onPost(callback) {
 		this.podium.openChannel(
 			this.podium.route.forPostsBy(this.address),
 			callback
@@ -526,8 +517,8 @@ export default class PodiumUser extends Record {
 						const followRecord = {
 							record: "follower",
 							type: "index",
-							address: this.address,
-						};
+							address: this.address
+						}
 
 						// Build relation account and payload
 						const relationAccount = this.podium.route
@@ -542,10 +533,10 @@ export default class PodiumUser extends Record {
 						const followingAccount = this.podium.route
 							.forUsersFollowedBy(this.address)
 						const followingRecord = {
-							type: "following",
+							record: "following",
 							type: "index",
-							address: address,
-						};
+							address: address
+						}
 
 						// Build alert payload
 						const alertAccount = this.podium.route
@@ -585,7 +576,7 @@ export default class PodiumUser extends Record {
 				.forRelationOf(this.address, address)
 			this.podium.getLatest(relationAccount)
 				.then(relation => resolve(relation.get(this.address)))
-				.catch(error => reject(error))
+				.catch(error => resolve(false))
 		})
 	}
 
@@ -597,49 +588,99 @@ export default class PodiumUser extends Record {
 				.forRelationOf(this.address, address)
 			this.podium.getLatest(relationAccount)
 				.then(relation => resolve(relation.get(address)))
-				.catch(error => reject(error))
+				.catch(error => resolve(false))
 		})
 	}
 
 
-	getUsersFollowed() {
-		this.debugOut(`Fetching users I follow`)
+	usersFollowed(force) {
+		this.debugOut(`Fetching users I follow${force ? " forced" : ""}`)
 		return new Promise((resolve, reject) => {
 
-			// Get location for records of followed users
-			const followingAccount = this.podium.route
-				.forUsersFollowing(this.address)
+			// Serve followed users from cache, if loaded
+			if (!force && this.cache.usersFollowed) {
+				resolve(this.cache.usersFollowed)
+			} else {
 
-			// Load following users
-			this.podium.getHistory(followingAccount)
-				.then(followed => followed.filter(
-					async f => await this.isFollowing(f.get("address"))
-				))
-				.then(followed => resolve(followed))
-				.catch(error => reject(error))
+				// Get location for records of followed users
+				const followingAccount = this.podium.route
+					.forUsersFollowedBy(this.address)
+
+				// Load following users
+				this.podium.getHistory(followingAccount)
+					.then(async followed => filterAsync(followed,
+						f => this.isFollowing(f.get("address"))
+					))
+					.then(followed => {
+						const followedList = followed
+							.map(f => f.get("address"))
+							.toList()
+						this.cache.usersFollowed = followedList
+						resolve(followedList)
+					})
+					.catch(error => {
+						if (error instanceof PodiumError && error.code === 2) {
+							resolve(List())
+						} else {
+							reject(error)
+						}
+					})
+
+			}
 
 		})
 	}
 
 
-	getFollowers() {
-		this.debugOut(`Fetching users who follow me`)
+	followers(force) {
+		this.debugOut(`Fetching users I follow${force ? " forced" : ""}`)
 		return new Promise((resolve, reject) => {
 
-			// Get location for records of followed users
-			const followAccount = this.podium.route
-				.forUsersFollowedBy(this.address)
+			// Serve followers from cache, if loaded
+			if (!force && this.cache.followers) {
+				resolve(this.cache.followers)
+			} else {
 
-			// Load followers
-			this.podium.getHistory(followAccount)
-				.then(followers => followers.filter(
-					async f => await this.isFollowedBy(f.get("address"))
-				))
-				.then(followers => {
-					this.followers = followers
-					resolve(followers)
-				})
-				.catch(error => reject(error))
+				// Get location for records of followed users
+				const followAccount = this.podium.route
+					.forUsersFollowing(this.address)
+
+				// Load followers
+				this.podium.getHistory(followAccount)
+
+					// Check relation records for each follower
+					// (As there is currently no means to delete
+					// radix atoms, this is the only way to allow
+					// unfollowing. The follower address lists all
+					// users who have ever followed the user, and
+					// the corresponding relation address lists
+					// the current relation between the users)
+					.then(followers => filterAsync(followers,
+						f => this.isFollowedBy(f.get("address"))
+					))
+
+					// Strip the index records to return the
+					// address for each following user
+					.then(followers => {
+						const followerList = followers
+							.map(f => f.get("address"))
+							.toList()
+						this.cache.followers = followerList
+						resolve(followerList)
+					})
+
+					// Handle errors and assume any time-out
+					// error resulted from an empty address
+					// (i.e. a user with 0 followers)
+					.catch(error => {
+						if (error instanceof PodiumError && error.code === 2) {
+							resolve(List())
+						} else {
+							reject(error)
+						}
+					})
+
+			}
 
 		})
 	}
@@ -661,7 +702,7 @@ export default class PodiumUser extends Record {
 							record: "follower",
 							type: "relation"
 						}
-						relationRecord[this.user] = false;
+						relationRecord[this.address] = false;
 
 						// Store following record
 						this.podium.sendRecord([relationAccount], relationRecord, this.identity)

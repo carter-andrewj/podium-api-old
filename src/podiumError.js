@@ -1,11 +1,10 @@
 
 
 
-export default class PodiumError extends Error {
+export class PodiumError extends Error {
 
 	constructor(...args) {
 		super(...args)
-		this.podiumError = true;
 		Error.captureStackTrace(this, PodiumError)
 	}
 
@@ -17,14 +16,22 @@ export default class PodiumError extends Error {
 
 	report() {
 		switch (this.code) {
+
 			case (0): 
 				return "Server Offline."
 			case (1):
 				return "No data received."
 			case (2):
 				return "Timed out."
+			case (3):
+				return "A user with that ID already exists."
+
+			case (100):
+				return "Forbidden: Remote cannot write to ledger."
+
 			default:
 				return "Unknown error."
+
 		}
 	}
 

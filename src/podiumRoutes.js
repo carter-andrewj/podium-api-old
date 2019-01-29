@@ -5,7 +5,8 @@ import { getAccount } from './utils';
 
 
 
-export default class PodiumRoutes {
+export class PodiumRoutes {
+
 
 	faucet() {
 		return RadixAccount.fromAddress(
@@ -59,13 +60,16 @@ export default class PodiumRoutes {
 			              "-" + (user.get("posts") + user.get("pending")));
 	}
 	forNewPost(post) {
-		return getAccount("podium-post-with-content-" + post);
+		return getAccount("podium-post-with-content-" + post + Math.random());
 	}
 	forRepliesToPost(address) {
 		return getAccount("podium-replies-to-post-" + address)
 	}
 	forPromotionsOfPost(address) {
 		return getAccount("podium-promotions-of-post-" + address)
+	}
+	forReportsOfPost(address) {
+		return getAccount("podium-reports-of-post-" + address)
 	}
 	
 
@@ -97,3 +101,5 @@ export default class PodiumRoutes {
 	}
 
 }
+
+

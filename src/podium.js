@@ -1,5 +1,7 @@
 import { Map, List, fromJS } from 'immutable';
 
+import s3 from 'aws-sdk/clients/s3';
+
 import FormData from 'form-data';
 import fetch from 'node-fetch';
 
@@ -8,59 +10,55 @@ import { radixUniverse, RadixUniverse, RadixLogger,
 		 RadixSimpleIdentity, RadixIdentityManager,
 		 RadixKeyStore, RadixTransactionBuilder } from 'radixdlt';
 
-import PodiumUser from './podiumUser';
-import PodiumError from './podiumError';
-import PodiumRoutes from './podiumRoutes';
+import { PodiumError } from './podiumError';
+import { PodiumRoutes } from './podiumRoutes';
+
+import { PodiumUser, PodiumRemoteUser } from './podiumUser';
+import { PodiumPost } from './podiumPost';
 
 import { getAccount } from './utils';
 
 
 
-export default class Podium {
+
+
+
+export class Podium {
 
 
 
 // INITIALIZATION
 
-	constructor(config) {
+	constructor() {
 
 		// Set up global variables
 		this.route = new PodiumRoutes();
 		this.channels = Map({});
 		this.timers = Map({});
-
-		// Set logging level
-		this.setDebug(config.DebugMode);
-
-		// Load remote config if none supplied
-		if (!config) {
-			this.server = "https://api.podium-network.com";
-			fetch(this.server)
-				.then(response => {
-					if (!response.ok) {
-						throw new PodiumError("Server Offline")
-							.withCode(0)
-					} else {
-						fetch(this.server + "/config")
-							.then(response => response.json())
-							.then(config => this.connect(config))
-					}
-				});
-		} else {
-			this.connect(config)
-		}
+		this.debug = false;
 
 	}
 
 
 	connect(config) {
 
+		// Set logging level
+		this.setDebug(config.DebugMode);
+
 		// Extract settings from config
-		this.app = config.ApplicationID;
-		this.timeout = config.Timeout;
-		this.lifetime = config.Lifetime;
-		this.server = "http://" + config.API;	// "https://" + config.API
-		this.media = config.MediaStore;
+		this.config = config;
+		this.app = config.ApplicationID || "podium";
+		this.timeout = config.Timeout || 3000;
+		this.lifetime = config.Lifetime || 60000;
+		
+		// Connect to S3
+		this.media = config.MediaStore || "https://media.podium-network.com/";
+		this.S3 = new s3({
+			apiVersion: '2006-03-01',
+			region: 'eu-west-1',
+			accessKeyId: process.env.AWS_ACCESS_KEY,
+			secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+		});
 
 		// Connect to radix network
 		//TODO - Test radix connection
@@ -71,13 +69,18 @@ export default class Podium {
 			case ("highgarden"):
 				radixUniverse.bootstrap(RadixUniverse.HIGHGARDEN);
 				break;
-			case ("alphanet"):
+			default: // Default to the alpha net
 				radixUniverse.bootstrap(RadixUniverse.ALPHANET);
-				break;
-			default:
-				throw new Error("Unknown Radix Universe.");
 		}
 
+		// Return the connected API
+		return this
+
+	}
+
+
+	remote(config) {
+		return (new PodiumRemote()).connect(config || this.config)
 	}
 
 
@@ -97,11 +100,10 @@ export default class Podium {
 	setDebug(debug) {
 		this.debug = debug;
 		if (!debug) {
-			RadixLogger.setLevel('error')
+			RadixLogger.setLevel('silent')
 		} else {
 			console.log("Debug Mode On")
 		}
-		RadixLogger.setLevel('silent')
 	}
 
 	debugOut() {
@@ -180,7 +182,7 @@ export default class Podium {
 
 // WRITE DATA TO RADIX
 
-	sendRecord(
+	storeRecord(
 			accounts,			// Destination accounts for record [Array]
 			payload,			// Payload of record to be sent [Object{}]
 			identity = this.user,
@@ -211,7 +213,7 @@ export default class Podium {
 	}
 
 
-	sendRecords() {
+	storeRecords() {
 		return new Promise((resolve, reject) => {
 
 			// Unpack arg list
@@ -229,10 +231,10 @@ export default class Podium {
 			}
 
 			// Dispatch records
-			this.sendRecord(args[0], args[1], identity)
+			this.storeRecord(args[0], args[1], identity)
 				.then(result => {
 					if (args.length > 2) {
-						this.sendRecords(identity, ...args.slice(2, args.length))
+						this.storeRecords(identity, ...args.slice(2, args.length))
 							.then(result => resolve(result))
 							.catch(error => reject(error))
 					} else {
@@ -241,6 +243,22 @@ export default class Podium {
 				})
 				.catch(error => reject(error))
 
+		})
+	}
+
+
+	storeMedia(image, imageURL) {
+		return new Promise((resolve, reject) => {
+			this.S3
+				.putObject({
+					Bucket: this.mediaStore,
+					Key: imageURL,
+					Body: Buffer.from(image, "base64"),
+					ContentType: `image/${address.split(".")[1]}`
+				})
+				.promise()
+				.then(() => resolve(address))
+				.catch(error => reject(error))
 		})
 	}
 
@@ -256,6 +274,7 @@ export default class Podium {
 
 		// Pulls all current values from a radix
 		// -account- and closes the channel connection.
+		let expire;
 		this.debugOut("Fetching Account History (timeout: " + timeout + ")")
 		return new Promise((resolve, reject) => {
 
@@ -297,6 +316,7 @@ export default class Podium {
 					skipper = setTimeout(() => {
 						this.debugOut(" > No record received for 1s. Resolving early.")
 						channel.unsubscribe()
+						clearTimeout(expire)
 						resolve(history.sort((a, b) =>
 							(a.get("created") > b.get("created")) ? 1 : -1
 						))
@@ -304,13 +324,15 @@ export default class Podium {
 
 				},
 				error: error => {
+					clearTimeout(expire)
 					channel.unsubscribe();
 					reject(error)
 				}
 			});
 
 			// Set timeout
-			setTimeout(
+			const timeoutError = new PodiumError().withCode(2);
+			expire = setTimeout(
 				() => {
 					channel.unsubscribe();
 					if (history.size > 0) {
@@ -320,7 +342,7 @@ export default class Podium {
 						))
 					} else {
 						this.debugOut(" > Timed out. No history received.")
-						reject(new PodiumError().withCode(2))
+						reject(timeoutError)
 					}
 				},
 				timeout * 1000
@@ -460,55 +482,10 @@ export default class Podium {
 
 
 
-
-// SERVER
-
-	dispatch(route, data) {
-		this.debugOut(`Posting to ${this.server}/${route}:`, data)
-		return new Promise((resolve, reject) => {
-			var body = new FormData();
-			Object.keys(data)
-				.forEach(k => body.append(k, data[k]))
-			fetch(`${this.server}/${route}`, {
-					method: "POST",
-					body: body
-				})
-				.then(result => {
-					if (result.ok) {
-						return result
-					} else {
-						throw new Error("Request failed with status:" + result.status)
-					}
-				})
-				.then(result => {
-					const output = result.json();
-					this.debugOut(" > Response: ", output)
-					resolve(fromJS(output))
-				})
-				.catch(error => reject(error))
-		})
-	}
+// MEDIA
 
 
-	uploadMedia(mediaFile, address) {
 
-		// Dispatches a media file to the server, which
-		// returns an ID address for that image in the
-		// public store.
-
-		return new Promise((resolve, reject) => {
-			// const body = new FormData()
-			// body.append("file", mediaFile)
-			// body.append("address", address)
-			this.dispatch("media", {
-					address: address,
-					file: mediaFile
-				})
-				.then(response => resolve(response))
-				.catch(error => reject(error))
-		})
-
-	}
 
 
 
@@ -517,32 +494,12 @@ export default class Podium {
 // CREATE USERS
 
 	createUser(
-		id,			// Podium @ ID of new user account
-		pw,			// Password for new user account
-		name,		// Display name of new user account
-		bio,		// Bio of new user account
-		picture,	// Picture, as base64 string
-		ext,
-		) {
-		return new Promise((resolve, reject) => {
-			this.dispatch("user", {
-					id: id,
-					pw: pw,
-					name: name,
-					bio: bio,
-					picture: picture,
-					ext: ext
-				})
-				.then(response => resolve(this.user(id, pw)))
-				.catch(error => reject(error))
-		})
-	}
-
-	newUser(
 			id,			// Podium @ ID of new user account
 			pw,			// Password for new user account
 			name,		// Display name of new user account
 			bio,		// Bio of new user account
+			picture,
+			ext
 		) {
 
 		// Registers a new podium user.
@@ -574,91 +531,134 @@ export default class Podium {
 		return new Promise(async (resolve, reject) => {
 
 			//TODO - Ensure user does not already exist
+			this.isUser(id)
+				.then(address => {
+					if (address) {
+						reject((new PodiumError).withCode(3))
+					} else {
+				
+						// Create user identity
+						const identityManager = new RadixIdentityManager();
+						const identity = identityManager.generateSimpleIdentity();
+						const address = identity.account.getAddress();
 
+						// Generate user public record
+						const profileAccount = this.route.forProfileOf(address);
+						const profilePayload = {
+							record: "profile",
+							type: "profile",
+							id: id,
+							name: name,
+							bio: bio || "",
+							picture: "",
+							address: address
+						}
 
-			// Create user identity
-			const identityManager = new RadixIdentityManager();
-			const identity = identityManager.generateSimpleIdentity();
-			const address = identity.account.getAddress();
+						// Generate user POD account
+						const podAccount = this.route.forPODof(address);
+						const podPayload = {
+							owner: address,
+							pod: 500,
+							from: ""
+						}
 
-			// Generate user public record
-			const profileAccount = this.route.forProfileOf(address);
-			const profilePayload = {
-				record: "profile",
-				type: "profile",
-				id: id,
-				name: name,
-				bio: bio || "",
-				picture: "",
-				address: address
-			}
+						// Generate user AUD account
+						const audAccount = this.route.forAUDof(address);
+						const audPayload = {
+							owner: address,
+							pod: 10,
+							from: ""
+						}
 
-			// Generate user POD account
-			const podAccount = this.route.forPODof(address);
-			const podPayload = {
-				owner: address,
-				pod: 500,
-				from: ""
-			}
+						// Generate user integrity record
+						const integrityAccount = this.route.forIntegrityOf(address);
+						const integrityPayload = {
+							owner: address,
+							i: 0.5,
+							from: ""
+						}
 
-			// Generate user AUD account
-			const audAccount = this.route.forAUDof(address);
-			const audPayload = {
-				owner: address,
-				pod: 10,
-				from: ""
-			}
+						// Generate record of this user's address owning this ID
+						const ownershipAccount = this.route.forProfileWithID(id);
+						const ownershipPayload = {
+							record: "ownership",
+							type: "username",
+							id: id,
+							owner: address
+						};
 
-			// Generate user integrity record
-			const integrityAccount = this.route.forIntegrityOf(address);
-			const integrityPayload = {
-				owner: address,
-				i: 0.5,
-				from: ""
-			}
+						// Encrypt keypair
+						const keyStore = this.route.forKeystoreOf(id, pw);
+						RadixKeyStore.encryptKey(identity.keyPair, pw)
+							.then(async encryptedKey => {
 
-			// Generate record of this user's address owning this ID
-			const ownershipAccount = this.route.forProfileWithID(id);
-			const ownershipPayload = {
-				record: "ownership",
-				type: "username",
-				id: id,
-				owner: address
-			};
+								// Store registration records
+								return this.storeRecords(
+									identity,
+									[keyStore], encryptedKey,
+									[profileAccount], profilePayload,
+									[podAccount], podPayload,
+									[audAccount], audPayload,
+									[integrityAccount], integrityPayload,
+									[ownershipAccount], ownershipPayload
+								)
 
-			// Encrypt keypair
-			const keyStore = this.route.forKeystoreOf(id, pw);
-			RadixKeyStore.encryptKey(identity.keyPair, pw)
-				.then(async encryptedKey => {
+							})
+							//TODO - Auto-follow Podium master account
+							.then(() => this.user(address).signIn(id, pw))
+							.then(activeUser => {
+								if (picture) {
+									activeUser.updateProfilePicture(picture, ext)
+										.then(() => resolve(activeUser))
+										.catch(error => reject(error))
+								} else {
+									resolve(activeUser)
+								}
+							})
+							.catch(error => reject(error))
 
-					// Store registration records
-					return this.sendRecords(
-						identity,
-						[keyStore], encryptedKey,
-						[profileAccount], profilePayload,
-						[podAccount], podPayload,
-						[audAccount], audPayload,
-						[integrityAccount], integrityPayload,
-						[ownershipAccount], ownershipPayload
-					)
-
+					}
 				})
-				//TODO - Auto-follow Podium master account
-				.then(result => resolve(this.user(id, pw)))
 				.catch(error => reject(error))
 
 		});
 
 	}
 
-	user(id, pw) {
+
+	user(address) {
+		const newUser = new PodiumUser(this, address)
+		newUser.load()
+		return newUser
+	}
+
+
+	isUser(id) {
 		return new Promise((resolve, reject) => {
-			(new PodiumUser(this))
-				.setDebug(this.debug)
-				.signIn(id, pw)
-				.then(u => resolve(u))
-				.catch(error => reject(error))
+			this.getLatest(this.route.forProfileWithID(id))
+				.then(ownershipRecord =>
+					resolve(ownershipRecord.get("owner"))
+				)
+				.catch(error => {
+					if (error.code === 2) {
+						resolve(false)
+					} else {
+						reject(error)
+					}
+				})
 		})
+	}
+
+
+
+
+
+// POSTS
+
+	post(address, author) {
+		const newPost = new PodiumPost(this, address, author)
+		newPost.load()
+		return newPost
 	}
 
 
@@ -669,144 +669,301 @@ export default class Podium {
 	//		 for the same record without multiple
 	//		 calls to the network
 
-	fetchProfile(
-			target,		// The address (or ID) of the profile to be retreived
-			id = false 	// Set true if passing an ID instead of an address
-		) {
-		return new Promise((resolve, reject) => {
+	// fetchProfile(
+	// 		target,		// The address (or ID) of the profile to be retreived
+	// 		id = false 	// Set true if passing an ID instead of an address
+	// 	) {
+	// 	return new Promise((resolve, reject) => {
 			
-			// Search on ID or Address
-			if (id) {
+	// 		// Search on ID or Address
+	// 		if (id) {
 
-				// Search on ID
-				this.getLatest(this.route.forProfileWithID(target))
-					.then(reference => resolve(
-						this.fetchProfile(reference.get("owner"))
-					))
-					.catch(error => reject(error))
+	// 			// Search on ID
+	// 			this.getLatest(this.route.forProfileWithID(target))
+	// 				.then(reference => resolve(
+	// 					this.fetchProfile(reference.get("owner"))
+	// 				))
+	// 				.catch(error => reject(error))
 
-			} else {
+	// 		} else {
 
-				// Search on address
-				this.getHistory(this.route.forProfileOf(target))
-					.then(history => {
-						var profile = history.reduce((a, b) => a.mergeDeep(b))
-						resolve(profile.set("pictureURL",
-							`https://${this.media}/${profile.get("picture")}`))
-					})
-					.catch(error => reject(error))
+	// 			// Search on address
+	// 			this.getHistory(this.route.forProfileOf(target))
+	// 				.then(history => {
+	// 					var profile = history.reduce((a, b) => a.mergeDeep(b))
+	// 					resolve(profile.set("pictureURL",
+	// 						`https://${this.media}/${profile.get("picture")}`))
+	// 				})
+	// 				.catch(error => reject(error))
 
-			}
+	// 		}
 
-		})
-	}
-
-
-	fetchPost(address) {
-		return new Promise((resolve, reject) => {
-			this.getHistory(this.route.forPost(address))
-
-				// Collate post history into a single object
-				.then(postHistory => postHistory
-					.reduce((post, next) => {
-						// TODO - Merge edits and retractions
-						//		  into a single cohesive map
-
-						// Collate timestamps
-						const lastTime = post.get("created")
-						const nextTime = next.get("created")
-						let created;
-						let latest;
-						if (lastTime && nextTime) {
-							created = Math.min(lastTime, nextTime)
-							latest = Math.max(lastTime, nextTime)
-						} else {
-							created = lastTime || nextTime
-							latest = lastTime || nextTime
-						}
-
-						// Return completed post
-						resolve(post
-							.mergeDeep(next)
-							.set("created", created)
-							.set("latest", latest)
-						)
-
-					}, Map({}))
-				)
-
-				// Handle errors
-				.catch(error => reject(error))
-
-		})
-	}
+	// 	})
+	// }
 
 
-	fetchRepliesTo(address) {
-		return new Promise((resolve, reject) => {
-			this.getHistory(this.route.forRepliesToPost(address))
-				.then(replies => replies
-					.map(r => r.get("address"))
-					.toList()
-				)
-				.then(replies => resolve(replies))
-				.catch(error => reject(error))
-		})
-	}
+	// fetchUserPostIndex(address) {
+	// 	return new Promise((resolve, reject) => {
+	// 		this.getHistory(this.route.forPostsBy(address))
+	// 			.then(posts => resolve(
+	// 				posts.map(i => i.get("address")).toSet()
+	// 			))
+	// 			.catch(error => reject(error))
+	// 	})
+	// }
 
 
-	fetchPromotionsOf(address) {
-		return new Promise((resolve, reject) => {
-			this.getHistory(this.route.forPromosOfPost(address))
-				.then(promos => resolve(promos))
-				.catch(error => reject(error))
-		})
-	}
+	// fetchPost(address) {
+	// 	return new Promise((resolve, reject) => {
+	// 		this.getHistory(this.route.forPost(address))
+
+	// 			// Collate post history into a single object
+	// 			.then(postHistory => postHistory
+	// 				.reduce((post, next) => {
+	// 					// TODO - Merge edits and retractions
+	// 					//		  into a single cohesive map
+
+	// 					// Collate timestamps
+	// 					const lastTime = post.get("created")
+	// 					const nextTime = next.get("created")
+	// 					let created;
+	// 					let latest;
+	// 					if (lastTime && nextTime) {
+	// 						created = Math.min(lastTime, nextTime)
+	// 						latest = Math.max(lastTime, nextTime)
+	// 					} else {
+	// 						created = lastTime || nextTime
+	// 						latest = lastTime || nextTime
+	// 					}
+
+	// 					// Return completed post
+	// 					resolve(post
+	// 						.mergeDeep(next)
+	// 						.set("created", created)
+	// 						.set("latest", latest)
+	// 					)
+
+	// 				}, Map({}))
+	// 			)
+
+	// 			// Handle errors
+	// 			.catch(error => reject(error))
+
+	// 	})
+	// }
 
 
-	fetchTopic(
-			target,		// The address (or ID) of the topic to be retreived
-			id = false	// Set true if passing an ID instead of an address
-		) {
-		return new Promise((resolve, reject) => {
+	// fetchUserPromotionIndex(address) {
+	// 	return new Promise((resolve, reject) => {
+	// 		this.getHistory(this.route.forPromotionsBy(address))
+	// 			.then(promos => resolve(promos
+	// 				.map(p => p.get("address"))
+	// 				.toSet()
+	// 			))
+	// 			.catch(error => reject(error))
+	// 	})
+	// }
+
+
+	// fetchPostReplyIndex(address) {
+	// 	return new Promise((resolve, reject) => {
+	// 		this.getHistory(this.route.forRepliesToPost(address))
+	// 			.then(replies => resolve(replies
+	// 				.map(r => r.get("address"))
+	// 				.toSet()
+	// 			))
+	// 			.catch(error => reject(error))
+	// 	})
+	// }
+
+
+	// fetchPostPromotionIndex(address) {
+	// 	return new Promise((resolve, reject) => {
+	// 		this.getHistory(this.route.forPromosOfPost(address))
+	// 			.then(promos => resolve(promos
+	// 				.map(p => p.get("address"))
+	// 				.toSet()
+	// 			))
+	// 			.catch(error => reject(error))
+	// 	})
+	// }
+
+
+	// fetchTopic(
+	// 		target,		// The address (or ID) of the topic to be retreived
+	// 		id = false	// Set true if passing an ID instead of an address
+	// 	) {
+	// 	return new Promise((resolve, reject) => {
 			
-			// Search on ID or Address
-			if (id) {
+	// 		// Search on ID or Address
+	// 		if (id) {
 
-				// Search on ID
-				this.getLatest(this.route.forTopicWithID(target))
-					.then(reference => resolve(
-						this.fetchTopic(reference.get("owner"))
-					))
-					.catch(error => reject(error))
+	// 			// Search on ID
+	// 			this.getLatest(this.route.forTopicWithID(target))
+	// 				.then(reference => resolve(
+	// 					this.fetchTopic(reference.get("owner"))
+	// 				))
+	// 				.catch(error => reject(error))
 
-			} else {
+	// 		} else {
 
-				// Search on address
-				this.getLatest(this.route.forTopic(target))
-					.then(topic => resolve(topic))
-					.catch(error => reject(error))
+	// 			// Search on address
+	// 			this.getLatest(this.route.forTopic(target))
+	// 				.then(topic => resolve(topic))
+	// 				.catch(error => reject(error))
 
-			}
+	// 		}
 
-		})
-	}
-
-
-
-// LISTENERS
-
-	listenPosts(address, callback) {
-		this.openChannel(
-			this.route.forPostsBy(address),
-			callback
-		);
-	}
+	// 	})
+	// }
 
 
 }
 
 
+
+
+
+
+
+
+
+
+export class PodiumRemote extends Podium {
+
+
+
+	connect(config) {
+		return new Promise((resolve, reject) => {
+
+			// Load remote config if none supplied
+			if (!config) {
+				this.fetchConfig()
+					.then(config => {
+						Podium.prototype.connect.call(this, config)
+						resolve()
+					})
+					.catch(error => reject(error))
+			} else {
+				Podium.prototype.connect.call(this, config)
+				resolve()
+			}
+
+		})
+	}
+
+
+	fetchConfig() {
+		this.server = "https://api.podium-network.com";
+		return new Promise((resolve, reject) => {
+			fetch(this.server)
+				.then(response => {
+					if (!response.ok) {
+						throw new PodiumError("Server Offline")
+							.withCode(0)
+					} else {
+						fetch(this.server + "/config")
+							.then(response => resolve(response.json()))
+							.catch(error => reject(error))
+					}
+				})
+				.catch(error => reject(error));
+		})
+	}
+
+
+
+// SEND RECORDS
+
+	// Prevent remote clients from writing directly
+	// to the ledger, except via smart contract
+	// CURRENTLY NOT ACTIVE WHILE IN DEVELOPMENT
+
+	// storeRecord() {
+	// 	throw (new PodiumError).withCode(100)
+	// }
+
+	// storeRecords() {
+	// 	throw (new PodiumError).withCode(100)
+	// }
+
+	// storeMedia() {
+	// 	throw (new PodiumError).withCode(100)
+	// }
+
+
+
+// SERVER INTERFACE
+
+	dispatch(route, data) {
+		this.debugOut(`Posting to ${this.server}/${route}:`, data)
+		return new Promise((resolve, reject) => {
+			var body = new FormData();
+			Object.keys(data)
+				.forEach(k => body.append(k, data[k]))
+			fetch(`${this.server}/${route}`, {
+					method: "POST",
+					body: body
+				})
+				.then(result => {
+					if (result.ok) {
+						return result
+					} else {
+						throw new Error("Request failed with status:" + result.status)
+					}
+				})
+				.then(result => {
+					const output = result.json();
+					this.debugOut(" > Response: ", output)
+					resolve(fromJS(output))
+				})
+				.catch(error => reject(error))
+		})
+	}
+
+
+
+
+// USERS
+
+	createUser(
+		id,			// Podium @ ID of new user account
+		pw,			// Password for new user account
+		name,		// Display name of new user account
+		bio,		// Bio of new user account
+		picture,	// Picture, as base64 string
+		ext
+		) {
+		return new Promise((resolve, reject) => {
+			this.dispatch("user", {
+					id: id,
+					pw: pw,
+					name: name,
+					bio: bio,
+					picture: picture,
+					ext: ext
+				})
+				.then(response => resolve(this.user(id, pw)))
+				.catch(error => reject(error))
+		})
+	}
+
+
+	user(address) {
+		const newUser = new PodiumRemoteUser(this, address)
+		newUser.load()
+		return newUser
+	}
+
+
+	isUser(id) {
+
+		// Dispatch
+
+	}
+
+
+}
 
 
 

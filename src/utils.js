@@ -27,3 +27,14 @@ export function filterAsync(subject, predicate) {
 }
 
 
+
+// Utility function for passing on errors
+// resulting from interrim code (currently
+// only the timeout error from getHistory
+// which is thrown for empty addresses - 
+// e.g. a user with no posts or no followers)
+export function checkThrow(error) {
+	if (error.code !== 2) {
+		throw error
+	}
+}

@@ -5,6 +5,9 @@ export class PodiumError extends Error {
 
 	constructor(...args) {
 		super(...args)
+		this.podiumError = true	// To allow quick identification
+								// of custom errors returned
+								// from the server
 		Error.captureStackTrace(this, PodiumError)
 	}
 
@@ -17,18 +20,28 @@ export class PodiumError extends Error {
 	report() {
 		switch (this.code) {
 
-			case (0): 
-				return "Server Offline."
+			// General errors
 			case (1):
 				return "No data received."
 			case (2):
 				return "Timed out."
 			case (3):
 				return "A user with that ID already exists."
+			case (4):
+				return "Cannot post an empty string."
 
-			case (100):
+			// Client-specific errors
+			case (100): 
+				return "Server Offline."
+			case (101):
 				return "Forbidden: Remote cannot write to ledger."
 
+			// Server-specific errors
+			case (200):
+				return "Bad keypair with request."
+
+
+			// Default to unknown
 			default:
 				return "Unknown error."
 

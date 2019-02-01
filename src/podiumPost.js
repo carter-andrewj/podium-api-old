@@ -1,6 +1,7 @@
 import { Map, fromJS, Set } from 'immutable';
 
 import { PodiumRecord } from './podiumRecord';
+import { PodiumCache } from './podiumCache';
 import { checkThrow } from './utils';
 
 
@@ -10,24 +11,107 @@ import { checkThrow } from './utils';
 export class PodiumPost extends PodiumRecord {
 
 
-
 	constructor(podium, address, author) {
 		super(podium, address)
 		this.author = author
-		this.emptyCache = fromJS({
-			last: {},
+	}
+
+
+	content() {
+		return new Promise((resolve, reject) => {
+			this.podium
+				.getHistory(this.podium.path.forPost(this.address))
+				.then(postHistory => {
+					const postContent = postHistory
+						.reduce((post, next) => {
+							// TODO - Merge edits and retractions
+							//		  into a single cohesive map
+
+							// Collate timestamps
+							const lastTime = post.get("created")
+							const nextTime = next.get("created")
+							let created;
+							let latest;
+							if (lastTime && nextTime) {
+								created = Math.min(lastTime, nextTime)
+								latest = Math.max(lastTime, nextTime)
+							} else {
+								created = lastTime || nextTime
+								latest = lastTime || nextTime
+							}
+
+							// Return completed post
+							return post
+								.mergeDeep(next)
+								.set("created", created)
+								.set("latest", latest)
+
+						}, Map({}))
+					resolve(postContent)
+				})
+				.catch(error => reject(error))
+		})
+	}
+
+
+
+	replies() {
+		return new Promise((resolve, reject) => {
+			this.podium
+				.getHistory(this.podium.path
+					.forRepliesToPost(this.address))
+				.then(index => {
+					index = index
+						.map(r => r.get("address"))
+						.toSet()
+					resolve(index)
+				})
+				.catch(error => reject(error))
+		})
+	}
+
+	promotions() {
+		return new Promise((resolve, reject) => {
+			this.podium
+				.getHistory(this.podium.path.forPromotionsOfPost(this.address))
+				.then(index => {
+					index = index.map(r => r.get("address")).toSet()
+					resolve(index)
+				})
+				.catch(error => reject(error))
+		})
+	}
+
+	reports() {
+		return new Promise((resolve, reject) => {
+			this.podium
+				.getHistory(this.podium.path
+					.forReportsOfPost(this.address))
+				.then(index => {
+					index = index.map(r => r.get("address")).toSet()
+					resolve(index)
+				})
+				.catch(error => reject(error))
+		})
+	}
+
+
+}
+
+
+
+
+export class PodiumClientPost extends PodiumPost {
+
+
+	constructor(podium, address, author) {
+		super(podium, address, author)
+		this.cache = new PodiumCache({
 			content: {},
 			replies: Set(),
 			promotions: Set(),
 			reports: Set()
 		})
-		this.cache = this.emptyCache
-	}
-
-
-
-	isMine(user) {
-		return user.address === this.cache.content.get("author")
 	}
 
 
@@ -42,50 +126,16 @@ export class PodiumPost extends PodiumRecord {
 
 	content(force) {
 		return new Promise((resolve, reject) => {
-
-			// Check if content can be served from cache
-			if (!force && this.isCached("content")) {
-
-				this.debugOut()
-				resolve(this.cached("content"))
-
+			if (!force && this.cache.is("content")) {
+				resolve(this.cache.get("content"))
 			} else {
-
-				this.podium
-					.getHistory(this.podium.route.forPost(this.address))
-					.then(postHistory => {
-						const content = postHistory
-							.reduce((post, next) => {
-								// TODO - Merge edits and retractions
-								//		  into a single cohesive map
-
-								// Collate timestamps
-								const lastTime = post.get("created")
-								const nextTime = next.get("created")
-								let created;
-								let latest;
-								if (lastTime && nextTime) {
-									created = Math.min(lastTime, nextTime)
-									latest = Math.max(lastTime, nextTime)
-								} else {
-									created = lastTime || nextTime
-									latest = lastTime || nextTime
-								}
-
-								// Return completed post
-								resolve(post
-									.mergeDeep(next)
-									.set("created", created)
-									.set("latest", latest)
-								)
-
-							}, Map({}))
-						this.swapCache("content", content)
-						resolve(content)
+				PodiumPost.prototype.content.call(this)
+					.then(postContent => {
+						this.cache.swap("content", postContent)
+						resolve(postContent)
 					})
 					.catch(error => reject(error))
 			}
-
 		})
 	}
 
@@ -93,63 +143,49 @@ export class PodiumPost extends PodiumRecord {
 
 	replies(force) {
 		return new Promise((resolve, reject) => {
-
-			if (!force && this.isCached("replies")) {
-				resolve(this.cached("replies"))
+			if (!force && this.cache.is("replies")) {
+				resolve(this.cache.get("replies"))
 			} else {
-
-				this.podium
-					.getHistory(this.podium.route.forRepliesToPost(this.address))
-					.then(index => {
-						index = index.map(r => r.get("address")).toSet()
-						this.swapCache("replies", index)
-						resolve(index)
+				PodiumPost.prototype.replies.call(this)
+					.then(replyIndex => {
+						this.cache.swap("replies", replyIndex)
+						resolve(replyIndex)
 					})
 					.catch(error => reject(error))
-
 			}
 		})
 	}
 
 	promotions(force) {
 		return new Promise((resolve, reject) => {
-
-			if (!force && this.isCached("promotions")) {
-				resolve(this.cached("promotions"))
+			if (!force && this.cache.is("promotions")) {
+				resolve(this.cache.get("promotions"))
 			} else {
-
-				this.podium
-					.getHistory(this.podium.route.forPromotionsOfPost(this.address))
-					.then(index => {
-						index = index.map(r => r.get("address")).toSet()
-						this.swapCache("promotions", index)
-						resolve(index)
+				PodiumPost.prototype.promotions.call(this)
+					.then(promoIndex => {
+						this.cache.swap("promotions", promoIndex)
+						resolve(promoIndex)
 					})
 					.catch(error => reject(error))
-
 			}
 		})
 	}
 
 	reports(force) {
 		return new Promise((resolve, reject) => {
-
 			if (!force && this.isCached("reports")) {
 				resolve(this.cached("reports"))
 			} else {
-
-				this.podium
-					.getHistory(this.podium.route.forReportsOfPost(this.address))
-					.then(index => {
-						index = index.map(r => r.get("address")).toSet()
-						this.swapCache("reports", index)
-						resolve(index)
+				PodiumPost.prototype.reports.call(this)
+					.then(reportIndex => {
+						this.cache.swap("reports", reportIndex)
+						resolve(reportIndex)
 					})
 					.catch(error => reject(error))
-
 			}
 		})
 	}
+
 
 
 }

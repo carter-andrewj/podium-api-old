@@ -5,7 +5,7 @@ import { getAccount } from './utils';
 
 
 
-export class PodiumRoutes {
+export class PodiumPaths {
 
 
 	faucet() {
@@ -60,7 +60,7 @@ export class PodiumRoutes {
 			              "-" + (user.get("posts") + user.get("pending")));
 	}
 	forNewPost(post) {
-		return getAccount("podium-post-with-content-" + post + Math.random());
+		return getAccount(`podium-post-with-content-${post}${Math.random()}`);
 	}
 	forRepliesToPost(address) {
 		return getAccount("podium-replies-to-post-" + address)

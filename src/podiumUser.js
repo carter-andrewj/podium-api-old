@@ -4,6 +4,7 @@ import { RadixSimpleIdentity, RadixKeyStore, RadixLogger } from 'radixdlt';
 
 import { PodiumRecord } from './podiumRecord';
 import { PodiumError } from './podiumError';
+import { PodiumCache } from './podiumCache';
 
 import { filterAsync, checkThrow } from './utils';
 
@@ -18,28 +19,8 @@ export class PodiumUser extends PodiumRecord {
 
 	constructor(podium, address) {
 		super(podium, address)
-		this.emptyCache = fromJS({
-			last: {},
-			profile: {},
-			followers: Set(),
-			followed: Set(),
-			posts: Set(),
-			promoted: Set(),
-			reports: Set(),
-			alerts: Set()
-		})
-		this.cache = this.emptyCache
 	}
 
-
-
-	load() {
-		this.profile(true).catch(checkThrow)
-		this.followed(true).catch(checkThrow)
-		this.followers(true).catch(checkThrow)
-		this.posts(true).catch(checkThrow)
-		return this
-	}
 
 
 
@@ -51,7 +32,7 @@ export class PodiumUser extends PodiumRecord {
 			this.podium
 
 				// Retrieve keypair
-				.getLatest(this.podium.route.forKeystoreOf(id, pw))
+				.getLatest(this.podium.path.forKeystoreOf(id, pw))
 
 				// Decrypt keypair
 				.then(encryptedKey => {
@@ -76,7 +57,6 @@ export class PodiumUser extends PodiumRecord {
 
 	activeUser(identity) {
 		var newActiveUser = new PodiumActiveUser(this.podium, identity)
-		newActiveUser.load()
 		return newActiveUser
 	}
 
@@ -86,32 +66,20 @@ export class PodiumUser extends PodiumRecord {
 
 // USER PROFILES
 
-	profile(force) {
+	profile() {
+		this.debugOut("Fetching Profile...")
 		return new Promise((resolve, reject) => {
-
-			if (!force && this.isCached("profile")) {
-
-				this.debugOut("Serving cache Profile...")
-				resolve(this.cached("profile"))
-
-			} else {
-				
-				this.debugOut("Fetching Profile...")
-
-				// Search on address
-				this.podium
-					.getHistory(this.podium.route.forProfileOf(this.address))
-					.then(history => history.reduce((a, b) => a.mergeDeep(b)))
-					.then(profile => {
-						profile = profile.set("pictureURL",
-							`${this.podium.media}/${profile.get("picture")}`)
-						this.swapCache("profile", profile)
-						resolve(profile)
-					})
-					.catch(error => reject(error))
-
-			}
-
+			this.podium
+				.getHistory(this.podium.path.forProfileOf(this.address))
+				.then(history => history.reduce((a, b) =>
+						a.mergeDeep(b.delete("record").delete("type"))
+					), Map())
+				.then(profile => {
+					profile = profile.set("pictureURL",
+						`${this.podium.media}/${profile.get("picture")}`)
+					resolve(profile)
+				})
+				.catch(error => reject(error))
 		})
 	}
 
@@ -121,48 +89,23 @@ export class PodiumUser extends PodiumRecord {
 
 // POSTS
 
-	posts(force) {
+	posts() {
+		this.debugOut("Fetching posts...")
 		return new Promise((resolve, reject) => {
-
-			if (!force && this.isCached("posts")) {
-
-				this.debugOut("Serving cached posts...")
-				resolve(this.cached("posts"))
-
-			} else {
-
-				this.debugOut("Fetching posts...")
-				this.podium
-					.getHistory(this.podium.route.forPostsBy(this.address))
-					.then(index => {
-						index = index.map(i => i.get("address")).toSet()
-						this.swapCache("posts", index)
-						resolve(index)
-					})
-					.catch(error => reject(error))
-
-			}
-
+			this.podium
+				.getHistory(this.podium.path.forPostsBy(this.address))
+				.then(index => {
+					index = index.map(i => i.get("address")).toSet()
+					resolve(index)
+				})
+				.catch(error => reject(error))
 		})
 	}
 
 
 	onPost(callback) {
 		this.podium.openChannel(
-			this.podium.route.forPostsBy(this.address),
-			callback
-		);
-	}
-
-
-
-
-
-// ALERTS
-
-	onAlert(callback) {
-		this.podium.openChannel(
-			this.podium.route.forAlertsTo(this.address),
+			this.podium.path.forPostsBy(this.address),
 			callback
 		);
 	}
@@ -177,7 +120,7 @@ export class PodiumUser extends PodiumRecord {
 	isFollowing(address) {
 		this.debugOut(`Testing if following ${address}`)
 		return new Promise((resolve, reject) => {
-			const relationAccount = this.podium.route
+			const relationAccount = this.podium.path
 				.forRelationOf(this.address, address)
 			this.podium
 				.getLatest(relationAccount)
@@ -190,7 +133,7 @@ export class PodiumUser extends PodiumRecord {
 	isFollowedBy(address) {
 		this.debugOut(`Testing if followed by ${address}`)
 		return new Promise((resolve, reject) => {
-			const relationAccount = this.podium.route
+			const relationAccount = this.podium.path
 				.forRelationOf(this.address, address)
 			this.podium
 				.getLatest(relationAccount)
@@ -200,94 +143,78 @@ export class PodiumUser extends PodiumRecord {
 	}
 
 
-	followed(force) {
-		this.debugOut(`Fetching users I follow${force ? " forced" : ""}`)
+	followed() {
+		this.debugOut(`Fetching users I follow...`)
 		return new Promise((resolve, reject) => {
 
-			// Serve followed users from cache, if loaded
-			if (!force && this.isCached("followed")) {
-				resolve(this.cached("followed"))
-			} else {
+			// Get location for records of followed users
+			const followingAccount = this.podium.path
+				.forUsersFollowedBy(this.address)
 
-				// Get location for records of followed users
-				const followingAccount = this.podium.route
-					.forUsersFollowedBy(this.address)
-
-				// Load following users
-				this.podium.getHistory(followingAccount)
-					.then(async followed => filterAsync(followed,
-						f => this.isFollowing(f.get("address"))
-					))
-					.then(followed => {
-						const followedList = followed
-							.map(f => f.get("address"))
-							.toSet()
-						this.cache.usersFollowed = followedList
-						resolve(followedList)
-					})
-					.catch(error => {
-						if (error instanceof PodiumError && error.code === 2) {
-							resolve(List())
-						} else {
-							reject(error)
-						}
-					})
-
-			}
+			// Load following users
+			this.podium.getHistory(followingAccount)
+				.then(async followed => filterAsync(followed,
+					f => this.isFollowing(f.get("address"))
+				))
+				.then(followed => {
+					const followedList = followed
+						.map(f => f.get("address"))
+						.toSet()
+					resolve(followedList)
+				})
+				.catch(error => {
+					if (error instanceof PodiumError && error.code === 2) {
+						resolve(List())
+					} else {
+						reject(error)
+					}
+				})
 
 		})
 	}
 
 
-	followers(force) {
-		this.debugOut(`Fetching users I follow${force ? " forced" : ""}`)
+	followers() {
+		this.debugOut(`Fetching users I follow`)
 		return new Promise((resolve, reject) => {
 
-			// Serve followers from cache, if loaded
-			if (!force && this.isCached("followers")) {
-				resolve(this.cached("followers"))
-			} else {
+			// Get location for records of followed users
+			const followAccount = this.podium.path
+				.forUsersFollowing(this.address)
 
-				// Get location for records of followed users
-				const followAccount = this.podium.route
-					.forUsersFollowing(this.address)
+			// Load followers
+			this.podium.getHistory(followAccount)
 
-				// Load followers
-				this.podium.getHistory(followAccount)
+				// Check relation records for each follower
+				// (As there is currently no means to delete
+				// radix atoms, this is the only way to allow
+				// unfollowing. The follower address lists all
+				// users who have ever followed the user, and
+				// the corresponding relation address lists
+				// the current relation between the users)
+				.then(followers => filterAsync(followers,
+					f => this.isFollowedBy(f.get("address"))
+				))
 
-					// Check relation records for each follower
-					// (As there is currently no means to delete
-					// radix atoms, this is the only way to allow
-					// unfollowing. The follower address lists all
-					// users who have ever followed the user, and
-					// the corresponding relation address lists
-					// the current relation between the users)
-					.then(followers => filterAsync(followers,
-						f => this.isFollowedBy(f.get("address"))
-					))
+				// Strip the index records to return the
+				// address for each following user
+				.then(followers => {
+					const followerList = followers
+						.map(f => f.get("address"))
+						.toSet()
+					resolve(followerList)
+				})
 
-					// Strip the index records to return the
-					// address for each following user
-					.then(followers => {
-						const followerList = followers
-							.map(f => f.get("address"))
-							.toSet()
-						this.cache.followers = followerList
-						resolve(followerList)
-					})
-
-					// Handle errors and assume any time-out
-					// error resulted from an empty address
-					// (i.e. a user with 0 followers)
-					.catch(error => {
-						if (error instanceof PodiumError && error.code === 2) {
-							resolve(List())
-						} else {
-							reject(error)
-						}
-					})
-
-			}
+				// Handle errors and assume any time-out
+				// error resulted from an empty address
+				// (i.e. a user with 0 followers)
+				.catch(error => {
+					if (error instanceof PodiumError && error.code === 2) {
+						resolve(List())
+					} else {
+						reject(error)
+					}
+				})
 
 		})
 	}
@@ -295,14 +222,14 @@ export class PodiumUser extends PodiumRecord {
 
 	onFollow(callback) {
 		this.podium.openChannel(
-			this.podium.route.forUsersFollowedBy(this.address),
+			this.podium.path.forUsersFollowedBy(this.address),
 			callback
 		);
 	}
 
 	onFollowed(callback) {
 		this.podium.openChannel(
-			this.podium.route.forUsersFollowing(this.address),
+			this.podium.path.forUsersFollowing(this.address),
 			callback
 		);
 	}
@@ -315,17 +242,118 @@ export class PodiumUser extends PodiumRecord {
 
 
 
+export class PodiumServerUser extends PodiumUser {
 
-
-
-
-export class PodiumRemoteUser extends PodiumUser {
-	
-	activateUser(identity) {
-		var newActiveUser = new PodiumRemoteActiveUser(this.podium, identity)
-		newActiveUser.load()
+	activeUser(identity) {
+		var newActiveUser = new PodiumServerActiveUser(this.podium, identity)
 		return newActiveUser
-	} 
+	}
+
+}
+
+
+
+
+export class PodiumClientUser extends PodiumUser {
+	
+
+	constructor(podium, address) {
+		super(podium, address)
+		this.cache = new PodiumCache({
+			profile: {},
+			followers: Set(),
+			followed: Set(),
+			posts: Set(),
+			promoted: Set(),
+			reports: Set(),
+			alerts: Set()
+		})
+	}
+
+
+
+	load() {
+		this.profile(true).catch(checkThrow)
+		this.followed(true).catch(checkThrow)
+		this.followers(true).catch(checkThrow)
+		this.posts(true).catch(checkThrow)
+		return this
+	}
+
+
+	activeUser(identity) {
+		var newActiveUser = new PodiumClientActiveUser(this.podium, identity)
+		return newActiveUser
+	}
+
+
+	profile(force) {
+		return new Promise((resolve, reject) => {
+			if (!force && this.cache.is("profile")) {
+				this.debugOut("Serving cached Profile...")
+				resolve(this.cache.get("profile"))
+			} else {
+				PodiumUser.prototype.profile.call(this)
+					.then(profile => {
+						this.cache.swap("profile", profile)
+						resolve(profile)
+					})
+					.catch(error => reject(error))
+			}
+		})
+	}
+
+
+	posts(force) {
+		return new Promise((resolve, reject) => {
+			if (!force && this.cache.is("posts")) {
+				this.debugOut("Serving cached Posts...")
+				resolve(this.cache.get("posts"))
+			} else {
+				PodiumUser.prototype.posts.call(this)
+					.then(posts => {
+						this.cache.swap("posts", posts)
+						resolve(posts)
+					})
+					.catch(error => reject(error))
+			}
+		})
+	}
+
+
+	followed(force) {
+		return new Promise((resolve, reject) => {
+			if (!force && this.cache.is("followed")) {
+				this.debugOut("Serving cached Posts...")
+				resolve(this.cache.get("followed"))
+			} else {
+				PodiumUser.prototype.followed.call(this)
+					.then(followed => {
+						this.cache.swap("followed", followed)
+						resolve(followed)
+					})
+					.catch(error => reject(error))
+			}
+		})
+	}
+
+
+	followers(force) {
+		return new Promise((resolve, reject) => {
+			if (!force && this.cache.is("followers")) {
+				this.debugOut("Serving cached Posts...")
+				resolve(this.cache.get("followers"))
+			} else {
+				PodiumUser.prototype.followers.call(this)
+					.then(followers => {
+						this.cache.swap("followers", followers)
+						resolve(followers)
+					})
+					.catch(error => reject(error))
+			}
+		})
+	}
+
 
 }
 
@@ -348,14 +376,6 @@ export class PodiumActiveUser extends PodiumUser {
 	}
 
 
-	debugOut() {
-		if (this.podium.debug) {
-			console.log("PODIUM ACTIVE USER > ", ...arguments)
-		}
-		return this
-	}
-
-
 
 // ACCOUNT UPDATING
 
@@ -374,7 +394,7 @@ export class PodiumActiveUser extends PodiumUser {
 		return new Promise(async (resolve, reject) => {
 			
 			// Generate user public record
-			const profileAccount = this.podium.route.forProfileOf(this.address);
+			const profileAccount = this.podium.path.forProfileOf(this.address);
 			const profilePayload = {
 				record: "profile",
 				type: "image",
@@ -383,11 +403,8 @@ export class PodiumActiveUser extends PodiumUser {
 
 			// Write record
 			this.podium
-				.storeRecord([profileAccount], profilePayload, this.identity)
-				.then(() => {
-					this.setCache(["profile", "name"], name)
-					resolve()
-				})
+				.storeRecord(this.identity, [profileAccount], profilePayload)
+				.then(() => resolve())
 				.catch(error => reject(error))
 
 		})
@@ -398,7 +415,7 @@ export class PodiumActiveUser extends PodiumUser {
 		return new Promise(async (resolve, reject) => {
 			
 			// Generate user public record
-			const profileAccount = this.podium.route.forProfileOf(this.address);
+			const profileAccount = this.podium.path.forProfileOf(this.address);
 			const profilePayload = {
 				record: "profile",
 				type: "bio",
@@ -407,18 +424,15 @@ export class PodiumActiveUser extends PodiumUser {
 
 			// Write record
 			this.podium
-				.storeRecord([profileAccount], profilePayload, this.identity)
-				.then(() => {
-					this.setCache(["profile", "bio"], bio)
-					resolve()
-				})
+				.storeRecord(this.identity, [profileAccount], profilePayload)
+				.then(() => resolve())
 				.catch(error => reject(error))
 
 		})
 	}
 
 	updateProfilePicture(image, ext) {
-		this.debugOut(`Updating profile picture: ${pictureAddress}`)
+		this.debugOut(`Updating profile picture`)
 		return new Promise(async (resolve, reject) => {
 			
 			// Store media
@@ -426,7 +440,7 @@ export class PodiumActiveUser extends PodiumUser {
 				.then(url => {
 
 					// Generate user public record
-					const profileAccount = this.podium.route.forProfileOf(this.address)
+					const profileAccount = this.podium.path.forProfileOf(this.address)
 					const profilePayload = {
 						record: "profile",
 						type: "image",
@@ -435,12 +449,8 @@ export class PodiumActiveUser extends PodiumUser {
 
 					// Write record
 					this.podium
-						.storeRecord([profileAccount], profilePayload, this.identity)
-						.then(() => {
-							this.setCache(["profile", "picture"],
-								`${this.podium.media}/${url}`)
-							resolve()
-						})
+						.storeRecord(this.identity, [profileAccount], profilePayload)
+						.then(() => resolve())
 						.catch(error => reject(error))
 
 				})
@@ -463,7 +473,7 @@ export class PodiumActiveUser extends PodiumUser {
 			//		 to detect image manipulation, etc...
 
 			// Register media on ledger
-			const mediaAccount = this.podium.route.forMedia(media)
+			const mediaAccount = this.podium.path.forMedia(media)
 			const mediaAddress = mediaAccount.getAddress()
 			const mediaURL = `${mediaAddress}.${ext}`
 
@@ -475,7 +485,7 @@ export class PodiumActiveUser extends PodiumUser {
 			const mediaPayload = {
 				record: "media",
 				type: "image", 		//TODO - Handle gifs/videos/audio
-				address: imageAddress,
+				address: mediaAddress,
 				url: mediaURL,
 				uploader: this.address
 			}
@@ -483,11 +493,11 @@ export class PodiumActiveUser extends PodiumUser {
 			// Register media on ledger
 			//TODO - Check if media already exists and skip
 			//		 this step, if required
-			this.debugOut(`Registering Media: ${imageAddress}`)
+			this.debugOut(`Registering Media: ${mediaAddress}`)
 			this.podium
-				.storeRecord([imageAccount], imagePayload, this.identity)
+				.storeRecord(this.identity, [mediaAccount], mediaPayload)
 				.then(() => this.podium.storeMedia(media, mediaURL))
-				.then(() => resolve(imageURL))
+				.then(() => resolve(mediaURL))
 				.catch(error => reject(error))
 
 		})
@@ -509,7 +519,7 @@ export class PodiumActiveUser extends PodiumUser {
 		return new Promise((resolve, reject) => {
 
 			// Resolve topic address
-			const topicAccount = this.podium.route.forTopicWithID(id);
+			const topicAccount = this.podium.path.forTopicWithID(id);
 			const topicAddress = topicAccount.getAddress();
 
 			// Build topic record
@@ -527,9 +537,8 @@ export class PodiumActiveUser extends PodiumUser {
 
 			// Store topic
 			this.podium
-				.storeRecord([topicAccount], topicRecord, this.identity)
+				.storeRecord(this.identity, [topicAccount], topicRecord)
 				//TODO - Add topic to index database
-				//TODO - Add to cache
 				.then(result => resolve(topicRecord))
 				.catch(error => reject(error))
 
@@ -543,119 +552,125 @@ export class PodiumActiveUser extends PodiumUser {
 // POSTS
 
 	createPost(
-			content,				// Content of new post
-			references = List(),	// References contained in new post
-			parent = null,			// Record of post being replied to (if any)
+			text,					// Content of new post
+			references = Map(),		// References contained in new post
+			parentAddress = null,	// Address of post being replied to (if any)
 		) {
-		this.debugOut(`Creating Post: ${content}`)
-		return new Promise((resolve, reject) => {
+		this.debugOut(`Creating Post: ${text}`)
+		return new Promise(async (resolve, reject) => {
 
-			//TODO - Upload media
-
-			// Build post accounts
-			//TODO - Fix deterministic posting addresses
-			//const postAccount = this.route.forNextPostBy(this.state.data.get("user"));
-			const postAccount = this.podium.route.forNewPost(content);
-			const postAddress = postAccount.getAddress();
-
-			// Unpack references
-			const mentions = references
-				.filter(ref => ref.get("type") === "mention")
-			//TODO - Handle topics, media, etc...
-
-			// Build post record
-			const postRecord = {
-
-				record: "post",
-				type: "post",
-
-				content: content,
-				address: postAddress,
-
-				author: this.address,
-				parent: (parent) ? parent.get("address") : null,
-				grandparent: (parent) ? parent.get("parent") : null,
-
-				origin: (parent) ? parent.get("origin") : postAddress,
-				depth: (parent) ? parent.get("depth") + 1 : 0,
-
-				mentions: mentions
-					.map(ref => ref.get("address"))
-					.toList()
-					.toJS(),
-
+			// Load parent post
+			let parent;
+			if (parentAddress) {
+				parent = await this.podium.post(parentAddress).content()
 			}
 
-			// Build destination accounts for index record
-			const indexAccount = this.podium.route.forPostsBy(this.address)
-			const indexRecord = {
-				record: "post",
-				type: "index",
-				address: postAddress
-			}
+			// Validate text string
+			if (!text || text === "") {
+				reject(new PodiumError().withCode(4))
 
-			// Write main post records
-			var postWrite = this.podium.storeRecords(
-				this.identity,
-				[postAccount], postRecord,
-				[indexAccount], indexRecord
-			)
+			// Validate parent post
+			} else if (parentAddress && !parent) {
+				reject(new PodiumError().withCode(5))
+
+			} else {
+
+				//TODO - Upload media
+
+				// Build post accounts
+				//TODO - Fix deterministic posting addresses
+				//const postAccount = this.path.forNextPostBy(this.state.data.get("user"));
+				const postAccount = this.podium.path.forNewPost(text);
+				const postAddress = postAccount.getAddress();
+
+				// Unpack references
+				const mentions = references.get("mentions") || List()
 
 
+				// Build post record
+				const postRecord = {
 
-			// Handle mention-specific records
-			let mentionWrite;
-			if (mentions.size > 0) {
+					record: "post",
+					type: "post",
 
-				// Build alert payload
-				const mentionAccounts = references
-					//.filter(ref => ref.get("address") !== userAddress)
-					.map(ref => this.podium.route.forAlertsTo(ref.get("address")))
-					.toJS()
-				const mentionRecord = {
-					record: "alert",
-					type: "mention",
-					post: postAddress,
-					user: this.address
+					text: text,
+					address: postAddress,
+
+					author: this.address,
+					parent: (parent) ? parentAddress : null,
+					grandparent: (parent) ? parent.get("parent") : null,
+
+					origin: (parent) ? parent.get("origin") : postAddress,
+					depth: (parent) ? parent.get("depth") + 1 : 0,
+
+					mentions: mentions.toJS(),
+
 				}
 
-				mentionWrite = this.podium.storeRecord(
-					mentionAccounts, mentionRecord, this.identity
+				// Build destination accounts for index record
+				const indexAccount = this.podium.path.forPostsBy(this.address)
+				const indexRecord = {
+					record: "post",
+					type: "index",
+					address: postAddress
+				}
+
+				// Write main post records
+				var postWrite = this.podium.storeRecords(
+					this.identity,
+					[postAccount], postRecord,
+					[indexAccount], indexRecord
 				)
+
+				// Handle mention-specific records
+				let mentionWrite;
+				if (mentions.size > 0) {
+
+					// Build alert payload
+					const mentionAccounts = mentions
+						//.filter(ref => ref.get("address") !== userAddress)
+						.map(address => this.podium.path.forAlertsTo(address))
+						.toJS()
+					const mentionRecord = {
+						record: "alert",
+						type: "mention",
+						post: postAddress,
+						user: this.address
+					}
+
+					mentionWrite = this.podium.storeRecord(
+						this.identity, mentionAccounts, mentionRecord
+					)
+
+				}
+
+				//TODO - Topics (and other references, etc...)
+
+				// Handle reply records
+				let replyWrite;
+				if (parent) {
+
+					// Build reply index
+					const replyAccount = this.podium.path
+						.forRepliesToPost(parentAddress)
+
+					// Store records in ledger
+					replyWrite = this.podium.storeRecord(
+						this.identity, [replyAccount], indexRecord
+					)
+
+				} 
+
+				// Wait for all writes to complete
+				Promise.all([postWrite, mentionWrite, replyWrite])
+					.then(() => {
+						var post = this.podium
+							.post(postAddress, this.address)
+						resolve(post)
+					})
+					.catch(error => reject(error))
 
 			}
-
-
-
-			//TODO - Topics (and other references, etc...)
-
-
-
-			// Handle reply records
-			let replyWrite;
-			if (parent) {
-
-				// Build reply index
-				const replyAccount = this.podium.route
-					.forRepliesToPost(parent.get("address"))
-
-				// Store records in ledger
-				replyWrite = this.podium.storeRecord(
-					[replyAccount], indexRecord, this.identity
-				)
-
-			} 
-
-
-
-			// Wait for all writes to complete
-			Promise.all([postWrite, mentionWrite, replyWrite])
-				.then(() => {
-					this.addCache("posts", postAddress)
-					resolve(this.podium.post(postAddress, this.address))
-				})
-				.catch(error => reject(error))
-
 
 		});
 
@@ -670,7 +685,7 @@ export class PodiumActiveUser extends PodiumUser {
 		return new Promise((resolve, reject) => {
 
 			// Get account for the promoting user's posts
-			const postAccount = this.podium.route.forPostsBy(this.address)
+			const postAccount = this.podium.path.forPostsBy(this.address)
 			const postRecord = {
 				record: "post",
 				type: "promotion",
@@ -678,7 +693,7 @@ export class PodiumActiveUser extends PodiumUser {
 			}
 
 			// Get account for logging promotions of target post
-			const promoteAccount = this.podium.route.forPromosOfPost(postAddress)
+			const promoteAccount = this.podium.path.forPromosOfPost(postAddress)
 			const promoteRecord = {
 				record: "post",
 				type: "promotion",
@@ -687,7 +702,7 @@ export class PodiumActiveUser extends PodiumUser {
 			}
 
 			// Build alert payload
-			const alertAccount = this.podium.route.forAlertsTo(authorAddress)
+			const alertAccount = this.podium.path.forAlertsTo(authorAddress)
 			const alertRecord = {
 				record: "alert",
 				type: "promotion",
@@ -702,10 +717,7 @@ export class PodiumActiveUser extends PodiumUser {
 					[promoteAccount], promoteRecord,
 					[alertAccount], alertRecord
 				)
-				.then(result => {
-					this.addCache("promoted", postAddress)
-					resolve(fromJS(postRecord))
-				})
+				.then(result => resolve(fromJS(postRecord)))
 				.catch(error => reject(error))
 
 		});
@@ -744,7 +756,7 @@ export class PodiumActiveUser extends PodiumUser {
 					if (!followed) {
 
 						// Build follow account payload
-						const followAccount = this.podium.route
+						const followAccount = this.podium.path
 							.forUsersFollowing(address)
 						const followRecord = {
 							record: "follower",
@@ -753,7 +765,7 @@ export class PodiumActiveUser extends PodiumUser {
 						}
 
 						// Build relation account and payload
-						const relationAccount = this.podium.route
+						const relationAccount = this.podium.path
 							.forRelationOf(this.address, address)
 						const relationRecord = {
 							record: "follower",
@@ -762,7 +774,7 @@ export class PodiumActiveUser extends PodiumUser {
 						relationRecord[this.address] = true
 
 						// Build following payload
-						const followingAccount = this.podium.route
+						const followingAccount = this.podium.path
 							.forUsersFollowedBy(this.address)
 						const followingRecord = {
 							record: "following",
@@ -771,7 +783,7 @@ export class PodiumActiveUser extends PodiumUser {
 						}
 
 						// Build alert payload
-						const alertAccount = this.podium.route
+						const alertAccount = this.podium.path
 							.forAlertsTo(address)
 						const alertRecord = {
 							record: "alert",
@@ -787,10 +799,7 @@ export class PodiumActiveUser extends PodiumUser {
 								[followingAccount], followingRecord,
 								[alertAccount], alertRecord
 							)
-							.then(result => {
-								this.addCache("followed", address)
-								resolve(result)
-							})
+							.then(() => resolve())
 							.catch(error => reject(error))
 
 					} else {
@@ -814,7 +823,7 @@ export class PodiumActiveUser extends PodiumUser {
 					if (followed) {
 
 						// Build relation account and payload
-						const relationAccount = this.podium.route
+						const relationAccount = this.podium.path
 							.forRelationOf(this.address, address);
 						const relationRecord = {
 							record: "follower",
@@ -824,11 +833,12 @@ export class PodiumActiveUser extends PodiumUser {
 
 						// Store following record
 						this.podium
-							.storeRecord([relationAccount], relationRecord, this.identity)
-							.then(result => {
-								this.removeCache("followed", address)
-								resolve()
-							})
+							.storeRecord(
+								this.identity,
+								[relationAccount],
+								relationRecord
+							)
+							.then(() => resolve())
 							.catch(error => reject(error))
 
 					} else {
@@ -847,12 +857,176 @@ export class PodiumActiveUser extends PodiumUser {
 
 
 
+export class PodiumServerActiveUser extends PodiumActiveUser {
 
 
 
 
-export class PodiumRemoteActiveUser extends PodiumActiveUser {
+// ALERTS
+
+	alerts(limit=25) {
+		return new Promise((resolve, reject) => {
+			const alerts = this.podium.db
+				.getCollection("alerts")
+				.chain()
+				.find({ to: this.address })
+				.simplesort("created", { desc: true })
+				.limit(limit)
+				.data()
+			resolve(fromJS(alerts).valueSeq().toList())
+		})
+	}
+
+
+	createAlert(type, userAddress, subjectAddress) {
+		this.podium.db
+			.getCollection("alerts")
+			.insert({
+				created: (new Date()).getTime(),
+				to: userAddress,
+				from: this.address,
+				type: type,
+				about: subjectAddress,
+				seen: false
+			})
+	}
+
+
+	clearAlerts(ids) {
+		this.podium.db
+			.getCollection("alerts")
+			.chain()
+			.find({
+				to: { '$eq': this.address },
+				'$loki': { '$in': ids.toJS() }
+			})
+			.update(item => {
+				item.seen = true
+			})
+	}
+
+
+
+
+// ALERT WRAPPERS FOR CREATION METHODS
+
+	createPost(
+			text,
+			references = Map(),
+			parentAddress = null
+		) {
+		return new Promise((resolve, reject) => {
+			PodiumActiveUser.prototype.createPost
+				.call(this, text, references, parentAddress)
+				.then(post => {
+
+					// Alert mentions
+					if (references.get("mentions")) {
+						references
+							.get("mentions")
+							.map(mention => {
+								this.createAlert(
+									"mention",
+									mention,
+									post.address
+								)
+							})
+					}
+
+					// Alert reply
+					let replyAlert;
+					if (parentAddress) {
+						this.podium
+							.post(parentAddress)
+							.content()
+							.then(content => {
+								this.createAlert(
+									"reply",
+									content.get("author"),
+									post.address
+								)
+								resolve(post)
+							})
+							.catch(error => reject(error))
+					} else {
+						resolve(post)
+					}
+
+				})
+				.catch(error => reject(error))
+		})
+	}
+
+
+	follow(address) {
+		return new Promise((resolve, reject) => {
+			PodiumActiveUser.prototype.follow.call(this, address)
+				.then(() => {
+					this.createAlert("follow", address)
+					resolve()
+				})
+				.catch(error => reject(error))
+		})
+	}
+
+
+
+
+}
+
+
+
+
+export class PodiumClientActiveUser extends PodiumClientUser {
 	
+
+	constructor(podium, identity) {
+		super(podium, identity.account.getAddress())
+		this.identity = identity
+	}
+
+
+
+
+// ALERTS
+
+	alerts(limit=25, force=false) {
+		return new Promise(async (resolve, reject) => {
+			if (!force && this.cache.is("alerts")) {
+				resolve(this.cache.get("alerts"))
+			} else {
+				this.podium
+					.dispatch(
+						"/alerts",
+						{ limit: limit },
+						this.identity
+					)
+					.then(response => {
+						const alerts = response.get("alerts").toList()
+						this.cache.swap("alerts", alerts)
+						resolve(alerts)
+					})
+					.catch(error => reject(error))
+			}
+		})
+	}
+
+
+	clearAlerts(ids) {
+		return new Promise(async (resolve, reject) => {
+			this.podium
+				.dispatch(
+					"/clearalerts",
+					{ ids: JSON.stringify(ids.toJS()) },
+					this.identity
+				)
+				.then(() => resolve())
+				.catch(error => reject(error))
+		})
+	}
+
+
+
 
 
 // ACCOUNT UPDATING
@@ -935,17 +1109,30 @@ export class PodiumRemoteActiveUser extends PodiumActiveUser {
 // POSTS
 
 	createPost(
-			content,			// Content of new post
-			references = [],	// References contained in new post
-			parent = null,		// Record of post being replied to (if any)
+			text,
+			references = Map(),
+			parentAddress = null
 		) {
-		this.debugOut(`Creating Post: ${content}`)
-		return new Promise((resolve, reject) => {
-
-			// DISPATCH
-
+		this.debugOut(`Creating Post: ${text}`)
+		return new Promise(async (resolve, reject) => {
+			this.podium
+				.dispatch(
+					"/post",
+					{
+						text: text,
+						references: JSON.stringify(references.toJS()),
+						parentAddress: parentAddress
+					},
+					this.identity
+				)
+				.then(response => {
+					const postAddress = response.get("address")
+					var post = this.podium.post(postAddress, this.address)
+					this.cache.add("posts", postAddress)
+					resolve(post)
+				})
+				.catch(error => reject(error))
 		})
-
 	}
 
 
@@ -983,26 +1170,40 @@ export class PodiumRemoteActiveUser extends PodiumActiveUser {
 
 // FOLLOWING
 
-
 	follow(address) {
 		this.debugOut(`Following ${address}`)
 		return new Promise((resolve, reject) => {
-
-			// DISPATCH
-
+			this.podium
+				.dispatch(
+					"/follow",
+					{ address: address },
+					this.identity
+				)
+				.then(() => {
+					this.cache.add("followed", address)
+					resolve()
+				})
+				.catch(error => reject(error))
 		})
-
 	}
-
 
 	unfollow(address) {
 		this.debugOut(`Unfollowing ${address}`)
 		return new Promise((resolve, reject) => {
-
-			// DISPATCH
-
+			this.podium
+				.dispatch(
+					"/unfollow",
+					{ address: address },
+					this.identity
+				)
+				.then(() => {
+					this.cache.remove("followed", address)
+					resolve()
+				})
+				.catch(error => reject(error))
 		})
 	}
+
 
 
 

@@ -47,6 +47,7 @@ require('events').EventEmitter.prototype._maxListeners = 1000;
 const testConfig = {
 
 	"DebugMode": false,
+	"LocalConfig": false,
 
 	"Universe": "alphanet",
 	"ApplicationID": `podium-TEST-${Math.random()}`,

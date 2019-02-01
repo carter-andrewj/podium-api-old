@@ -40,6 +40,13 @@ export class PodiumError extends Error {
 			case (200):
 				return "Bad keypair with request."
 
+			// Environment errors
+			case (900):
+				return "Environment Variable AWS_ACCESS_KEY not found."
+			case (901):
+				return "Environment Variable AWS_SECRET_ACCESS_KEY not found."
+			case (902):
+				return "Environment Variable PODIUM_SERVER_KEY not found."
 
 			// Default to unknown
 			default:

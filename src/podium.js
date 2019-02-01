@@ -41,6 +41,17 @@ export class Podium {
 
 	constructor() {
 
+		// Ensure required environment variables are set
+		if (!process.env.AWS_ACCESS_KEY) {
+			throw (new PodiumError).withCode(900)
+		}
+		if (!process.env.AWS_SECRET_ACCESS_KEY) {
+			throw (new PodiumError).withCode(901)
+		}
+		if (!process.env.PODIUM_SERVER_KEY) {
+			throw (new PodiumError).withCode(902)
+		}
+
 		// Set up global variables
 		this.path = new PodiumPaths();
 		this.channels = Map({});
@@ -842,8 +853,17 @@ export class PodiumServer extends Podium {
 			response.status(200).json({}).end()
 		})
 
+		// Config route
+		this.server.get("/config", (request, response) => {
+			response
+				.status(200)
+				.json(this.config.toJS())
+				.end()
+		})
+
 		// User management
 		this.createUserRoute()
+		this.isUserRoute()
 
 		// Alerts
 		this.alertsRoute()
@@ -860,6 +880,7 @@ export class PodiumServer extends Podium {
 		this.createPostRoute()
 
 	}
+
 
 
 
@@ -937,6 +958,39 @@ export class PodiumServer extends Podium {
 	}
 
 
+	isUser(id) {
+		return new Promise((resolve, reject) => {
+			const check = this.db
+				.getCollection("users")
+				.findOne({ id: id })
+			const result = check ? check.address : false
+			resolve(result)
+		})
+	}
+
+
+	isUserRoute() {
+		this.server
+			.post("/isuser", (request, response) => {
+				this.isUser(request.body.id)
+					.then(result => response
+						.status(200)
+						.json({ result: result })
+						.end()
+					)
+					.catch(error => response
+						.status(500)
+						.json({
+							podiumError: error.podiumError,
+							error: error.message,
+							code: error.podiumError ? error.code : 500
+						})
+						.end()
+					)
+			})
+	}
+
+
 
 // SEARCH
 
@@ -976,7 +1030,7 @@ export class PodiumServer extends Podium {
 			RadixKeyStore
 				.decryptKey(
 					JSON.parse(encryptedKeyPair),
-					this.config.get("ServerSecretKey")
+					process.env.PODIUM_SERVER_KEY
 				)
 				.then(keyPair => {
 					const identity = new RadixSimpleIdentity(keyPair)
@@ -1161,31 +1215,40 @@ export class PodiumClient extends Podium {
 	connect(config) {
 		return new Promise((resolve, reject) => {
 
-			// Initialize class
-			Podium.prototype.connect.call(this, config)
+			// Store server address
 			this.serverURL = config.ServerURL
 
-			resolve(this)
-
-		})
-	}
-
-
-	fetchConfig() {
-		this.server = "https://api.podium-network.com";
-		return new Promise((resolve, reject) => {
-			fetch(this.server)
+			// Check server connection
+			fetch(this.serverURL)
 				.then(response => {
+
+					// Throw an error if server not found
 					if (!response.ok) {
-						throw new PodiumError("Server Offline")
-							.withCode(0)
+						reject((new PodiumError()).withCode(0))
 					} else {
-						fetch(this.server + "/config")
-							.then(response => resolve(response.json()))
-							.catch(error => reject(error))
+
+						// Initialize class locally, if required
+						if (config.LocalConfig) {
+							Podium.prototype.connect.call(this, config)
+							resolve(this)
+
+						// Otherwise, load config from the server
+						} else {
+							fetch(`${this.serverURL}/config`)
+								.then(response => response.json())
+								.then(serverConfig => {
+									Podium.prototype.connect
+										.call(this, serverConfig)
+									resolve(this)
+								})
+								.catch(error => reject(error))
+						}
+
 					}
+
 				})
 				.catch(error => reject(error));
+
 		})
 	}
 
@@ -1227,7 +1290,7 @@ export class PodiumClient extends Podium {
 			if (identity) {
 				const keyPair = await RadixKeyStore.encryptKey(
 					identity.keyPair,
-					this.config.get("ServerSecretKey")
+					process.env.PODIUM_SERVER_KEY
 				)
 				body.append("keyPair", JSON.stringify(keyPair))
 			}
@@ -1307,6 +1370,16 @@ export class PodiumClient extends Podium {
 		const newUser = new PodiumClientUser(this, address)
 		newUser.load()
 		return newUser
+	}
+
+
+	isUser(id) {
+		return new Promise((resolve, reject) => {
+			this.dispatch("/isuser", { id: id })
+				.then(response => resolve(response.get("result")))
+				.then(activeUser => resolve(activeUser))
+				.catch(error => reject(error))
+		})
 	}
 
 

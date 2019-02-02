@@ -50,10 +50,10 @@ export function shouldCleanUpOldAlerts() {
 		var alerts = this.podiumServer.db.getCollection("alerts")
 		
 		// Check current number of alerts is as expected
-		// 1 follow, 2 replies, 1 mention - all x2
-		// (once for Server tests, once for Client)
+		// 2 follows of root, 1 follow, 2 replies, 1 mention
+		// all x2 (once for Server tests, once for Client)
 		var countBefore = alerts.count()
-		expect(countBefore).to.equal(8)
+		expect(countBefore).to.equal(12)
 
 		// Set alert cleanup to be near-instantaneous
 		alerts.setTTL(1000, 100)

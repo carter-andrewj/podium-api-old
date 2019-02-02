@@ -61,7 +61,7 @@ export class Podium {
 	}
 
 
-	connect(config) {
+	connect(config={}) {
 		//NOTE: This is a promise because the overriding
 		//		methods in PodiumServer and PodiumClient
 		//		need to return promises and this keeps
@@ -69,13 +69,19 @@ export class Podium {
 		return new Promise((resolve, reject) => {
 
 			// Set logging level
-			this.setDebug(config.DebugMode);
+			this.setDebug(config.DebugMode || false);
 
 			// Extract settings from config
-			this.config = Map(config);
-			this.app = config.ApplicationID || "podium";
-			this.timeout = config.Timeout || 3000;
+			this.config = fromJS(config);
+			this.appID = config.ApplicationID || "podium";
+			this.version = config.ApplicationVersion || 0;
+			this.app = `${this.appID}/${this.version}`;
+			this.launched = (new Date).getTime()
+			this.timeout = config.Timeout || 10000;
 			this.lifetime = config.Lifetime || 60000;
+
+			// Set root user, if provided
+			this.rootAddress = config.RootAddress;
 			
 			// Connect to S3
 			this.media = config.MediaStore || "https://media.podium-network.com/";
@@ -269,40 +275,6 @@ export class Podium {
 
 		})
 	}
-
-
-	// storeRecordsOld() {
-	// 	return new Promise((resolve, reject) => {
-
-	// 		// Unpack arg list
-	// 		var args = Array.prototype.slice.call(arguments)
-
-	// 		// Check if identity was provided
-	// 		let identity;
-	// 		if ((args.length % 2) === 1) {
-	// 			identity = args[0]
-	// 			args = args.slice(1, args.length)
-	// 		} else if (this.user) {
-	// 			identity = this.user
-	// 		} else {
-	// 			throw new Error("Missing Identity")
-	// 		}
-
-	// 		// Dispatch records
-	// 		this.storeRecord(args[0], args[1], identity)
-	// 			.then(result => {
-	// 				if (args.length > 2) {
-	// 					this.storeRecords(identity, ...args.slice(2, args.length))
-	// 						.then(result => resolve(result))
-	// 						.catch(error => reject(error))
-	// 				} else {
-	// 					resolve(true)
-	// 				}
-	// 			})
-	// 			.catch(error => reject(error))
-
-	// 	})
-	// }
 
 
 	storeMedia(image, imageURL) {
@@ -541,7 +513,55 @@ export class Podium {
 
 
 
-// MEDIA
+// NETWORK
+
+	createNetwork() {
+		return new Promise((resolve, reject) => {
+
+			// Increment network version to ensure
+			// empty Radix atom space
+			this.version = this.version + 1
+			this.app = `${this.appID}/${this.version}`
+
+			this.config = this.config
+				.set("ApplicationVersion", this.version)
+
+			// Log out network settings
+			if (!this.config.get("SupressCreateNetworkOutput")) {
+				console.log(`Created New Network: ${this.app}`)
+			}
+
+			// Create root podium account
+			const rootUserData = this.config.get("RootUser")
+			const rootPassword = uuid()
+			this.createUser(
+					rootUserData.get("ID"),
+					rootPassword,
+					rootUserData.get("Name"),
+					rootUserData.get("Bio")
+				)
+				.then(rootUser => {
+
+					// Log out credentials
+					if (!this.config.get("SupressCreateNetworkOutput")) {
+						console.log(`Created Root User`)
+						console.log(` > ID: ${rootUserData.get("ID")}`)
+						console.log(` > Password: ${rootPassword}`)
+						console.log(` > Address: ${rootUser.address}`)
+					}
+
+					// Store address and resolve
+					this.rootAddress = rootUser.address
+					this.rootUser = rootUser
+					this.config = this.config
+						.set("RootAddress", this.rootAddress)
+					resolve()
+
+				})
+				.catch(error => reject(error))
+
+		})
+	}
 
 
 
@@ -666,13 +686,26 @@ export class Podium {
 							//TODO - Auto-follow Podium master account
 							.then(() => this.user(address).signIn(id, pw))
 							.then(activeUser => {
-								if (picture) {
-									activeUser.updateProfilePicture(picture, ext)
-										.then(() => resolve(activeUser))
-										.catch(error => reject(error))
-								} else {
-									resolve(activeUser)
+
+								// Auto-follow root account
+								let followPromise;
+								if (this.rootAddress) {
+									followPromise = activeUser
+										.follow(this.rootAddress)
 								}
+
+								// Set user's profile picture
+								let picturePromise;
+								if (picture) {
+									picturePromise = activeUser
+										.updateProfilePicture(picture, ext)
+								}
+
+								// Wait for tasks to complete
+								Promise.all([followPromise, picturePromise])
+									.then(() => resolve(activeUser))
+									.catch(error => reject(error))
+
 							})
 							.catch(error => reject(error))
 
@@ -730,12 +763,12 @@ export class PodiumServer extends Podium {
 
 
 
-	connect(config) {
+	connect(config={}) {
 		return new Promise((resolve, reject) => {
 
 			// Call parent method
 			Podium.prototype.connect.call(this, config)
-			this.port = config.ServerPort
+			this.port = config.ServerPort || 3000
 
 			// Initialize database
 			this.initDB()
@@ -748,6 +781,19 @@ export class PodiumServer extends Podium {
 		})
 	}
 
+
+	createNetwork() {
+		return new Promise((resolve, reject) => {
+			Podium.prototype.createNetwork.call(this)
+				.then(() => this.resetDB())
+				.then(() => resolve())
+				.catch(error => reject(error))
+		})
+	}
+
+
+
+// DATABASE
 
 	initDB() {
 		return new Promise((resolve, reject) => {
@@ -801,6 +847,10 @@ export class PodiumServer extends Podium {
 		})
 	}
 
+
+
+
+// ENDPOINT
 
 	serve() {
 
@@ -992,34 +1042,46 @@ export class PodiumServer extends Podium {
 
 
 
+
 // SEARCH
 
-	search() {
-		return this.db
-			.getCollection("users")
-			.find({ "id": { "$regex": target }})
+	search(target) {
+		return new Promise((resolve, reject) => {
+			const records = this.db
+				.getCollection("users")
+				.find({ "id": { "$regex": target }})
+			const results = fromJS(records)
+				.map(rec => rec.get("address"))
+				.toSet()
+			resolve(results)
+		})
 	}
 
 
 	searchRoute() {
 		this.server
-			.get("/search", (request, response) => {
-
-				// Unpack request
-				const target = request.query.target
+			.post("/search", (request, response) => {
 
 				// Search database
-				const results = this.search(target)
+				this.search(request.body.target)
+					.then(results => response
+						.status(200)
+						.json(results.toJS())
+						.end()
+					)
+					.catch(error => response
+						.status(500)
+						.json({
+							podiumError: error.podiumError,
+							error: error.message,
+							code: error.podiumError ? error.code : 500
+						})
+						.end()
+					)
 
-				//TODO - Search topics, etc.. as well
-
-				// Build response
-				response
-					.status(200)
-					.json(results)
-					.end()
-				})
+			})
 	}
+
 
 
 
@@ -1212,11 +1274,11 @@ export class PodiumClient extends Podium {
 
 
 
-	connect(config) {
+	connect(config={}) {
 		return new Promise((resolve, reject) => {
 
 			// Store server address
-			this.serverURL = config.ServerURL
+			this.serverURL = config.ServerURL || "https://api.podium-network.com"
 
 			// Check server connection
 			fetch(this.serverURL)
@@ -1258,20 +1320,22 @@ export class PodiumClient extends Podium {
 
 	// Prevent remote clients from writing directly
 	// to the ledger, except via smart contract
-	// CURRENTLY NOT ACTIVE WHILE IN DEVELOPMENT
 
-	// storeRecord() {
-	// 	throw (new PodiumError).withCode(101)
-	// }
+	storeRecord() {
+		throw (new PodiumError).withCode(101)
+	}
 
-	// storeRecords() {
-	// 	throw (new PodiumError).withCode(101)
-	// }
+	storeRecords() {
+		throw (new PodiumError).withCode(101)
+	}
 
-	// storeMedia() {
-	// 	throw (new PodiumError).withCode(101)
-	// }
+	storeMedia() {
+		throw (new PodiumError).withCode(101)
+	}
 
+	createNetwork() {
+		throw (new PodiumError).withCode(102)
+	}
 
 
 // SERVER INTERFACE
@@ -1396,10 +1460,8 @@ export class PodiumClient extends Podium {
 
 	search(target) {
 		return new Promise((resolve, reject) => {
-			this.dispatch("/search", {
-					target: target
-				})
-				.then(() => resolve())
+			this.dispatch("/search", { target: target })
+				.then(results => resolve(results.toSet()))
 				.catch(error => reject(error))
 		})
 	}

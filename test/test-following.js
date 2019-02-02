@@ -30,6 +30,21 @@ export function shouldFollow() {
 	})
 
 
+	it("automatically follow the root account", function(done) {
+		var testRoot = this.user
+			.isFollowing(this.podium.rootAddress)
+		var testOtherRoot = this.otherUser
+			.isFollowing(this.podium.rootAddress)
+		Promise.all([testRoot, testOtherRoot])
+			.then(([result, otherResult]) => {
+				expect(result).to.be.true
+				expect(otherResult).to.be.true
+				done()
+			})
+			.catch(error => done(error))
+	})
+
+
 	it("can see which users they follow", function() {
 		var followers = this.otherUser.followers()
 		return expect(followers).to.eventually
@@ -43,7 +58,7 @@ export function shouldFollow() {
 		var following = this.user.followed()
 		return expect(following).to.eventually
 			.be.an.instanceOf(Set)
-			.and.have.size(1)
+			.and.have.size(2)
 			.and.include(this.otherUser.address)
 	})
 
@@ -73,6 +88,39 @@ export function shouldCreateFollowAlerts() {
 
 }
 
+
+
+export function shouldCacheFollowData() {
+
+	it("caches index of followers", function(done) {
+		this.timeout(10)
+		this.otherUser
+			.followers(false)
+			.then(followers => {
+				expect(followers).to
+					.be.an.instanceOf(Set)
+					.and.have.size(1)
+					.and.include(this.user.address)
+				done()
+			})
+			.catch(error => done(error))
+	})
+
+	it("caches index of followed users", function(done) {
+		this.timeout(10)
+		this.user
+			.followed(false)
+			.then(followed => {
+				expect(followed).to
+					.be.an.instanceOf(Set)
+					.and.have.size(2)
+					.and.include(this.otherUser.address)
+				done()
+			})
+			.catch(error => done(error))
+	})
+
+}
 
 
 

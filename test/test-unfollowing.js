@@ -28,7 +28,7 @@ export function shouldUnfollow() {
 	})
 
 
-	it("can correctly see which users they now follow", function() {
+	it("can correctly see which users now follow them", function() {
 		var unfollowers = this.otherUser.followers(true)
 		return expect(unfollowers).to.eventually
 			.be.an.instanceOf(Set)
@@ -36,13 +36,53 @@ export function shouldUnfollow() {
 	})
 
 
-	it("can correctly see which users now follow them", function() {
+	it("can correctly see which users they now follow", function() {
 		var unfollowing = this.user.followed(true)
 		return expect(unfollowing).to.eventually
 			.be.an.instanceOf(Set)
-			.and.have.size(0)
+			.and.have.size(1)
+			.and.include(this.podium.rootAddress)
 	})
 
 }
+
+
+
+export function shouldCacheUnfollowData() {
+
+	it("removes departing followers from the cache", function(done) {
+		this.timeout(10)
+		this.otherUser
+			.followers(false)
+			.then(followers => {
+				expect(followers).to
+					.be.an.instanceOf(Set)
+					.and.have.size(0)
+				expect(followers).to
+					.equal(this.otherUser.cache.get("followers"))
+				done()
+			})
+			.catch(error => done(error))
+	})
+
+	it("removes unfollowed users from the cache", function(done) {
+		this.timeout(10)
+		this.user
+			.followed(false)
+			.then(followed => {
+				expect(followed).to
+					.be.an.instanceOf(Set)
+					.and.have.size(1)
+					.and.include(this.podium.rootAddress)
+				expect(followed).to
+					.equal(this.user.cache.get("followed"))
+				done()
+			})
+			.catch(error => done(error))
+	})
+
+}
+
+
 
 

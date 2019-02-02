@@ -287,7 +287,7 @@ export class PodiumClientUser extends PodiumUser {
 	}
 
 
-	profile(force) {
+	profile(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.cache.is("profile")) {
 				this.debugOut("Serving cached Profile...")
@@ -304,7 +304,7 @@ export class PodiumClientUser extends PodiumUser {
 	}
 
 
-	posts(force) {
+	posts(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.cache.is("posts")) {
 				this.debugOut("Serving cached Posts...")
@@ -321,7 +321,7 @@ export class PodiumClientUser extends PodiumUser {
 	}
 
 
-	followed(force) {
+	followed(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.cache.is("followed")) {
 				this.debugOut("Serving cached Posts...")
@@ -338,7 +338,7 @@ export class PodiumClientUser extends PodiumUser {
 	}
 
 
-	followers(force) {
+	followers(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.cache.is("followers")) {
 				this.debugOut("Serving cached Posts...")

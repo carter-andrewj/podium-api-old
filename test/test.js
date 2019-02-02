@@ -20,13 +20,16 @@ import { PodiumUser, PodiumActiveUser,
 import { PodiumPost } from '../src/podiumPost';
 
 import { prepareUsers, shouldCreateUsers } from './test-users';
-import { prepareProfiles, shouldCreateProfiles } from './test-profiles';
+import { prepareProfiles, shouldCreateProfiles,
+		 shouldCacheProfiles } from './test-profiles';
 import { prepareFollow, shouldFollow,
-		 shouldCreateFollowAlerts } from './test-following';
-import { prepareUnfollow, shouldUnfollow } from './test-unfollowing';
+		 shouldCreateFollowAlerts, shouldCacheFollowData } from './test-following';
+import { prepareUnfollow, shouldUnfollow,
+		 shouldCacheUnfollowData } from './test-unfollowing';
 import { preparePosts, shouldCreatePosts,
-		 shouldCreatePostAlerts } from './test-posting';
+		 shouldCreatePostAlerts, shouldCachePostData } from './test-posting';
 import { shouldFlagSeenAlerts, shouldCleanUpOldAlerts } from './test-alerts';
+import { shouldSearchUsers } from './test-search';
 
 
 chai.use(chaiImmutable);
@@ -47,25 +50,34 @@ require('events').EventEmitter.prototype._maxListeners = 1000;
 const testConfig = {
 
 	"DebugMode": false,
-	"LocalConfig": false,
+	"SupressCreateNetworkOutput": true,
 
 	"Universe": "alphanet",
 	"ApplicationID": `podium-TEST-${Math.random()}`,
+	"ApplicationVersion": 0,
 	"Timeout": 10,
 	"Lifetime": 0,
 
-	"ServerURL": "http://localhost:3333",
+	"ServerPort": 3333,
 
 	"MediaStore": "test-media.podium-network.com",
 	"FileLimit": "5mb",
-	"ReloadConfig": 600,
 	
 	"DatabaseName": "test/testdata/test.db",
 	"BackupFrequency": 600,
 
-	"ServerPort": 3333,
-	"SessionName": "podium-test",
-	"ServerSecretKey": "secret-test-key"
+	"RootUser": {
+		"ID": "podiumTestRoot",
+		"Name": "Podium Test Root User",
+		"Bio": "This is the bio of the Test Root User"
+	}
+	
+}
+
+const clientTestConfig = {
+
+	"LocalConfig": false,
+	"ServerURL": "http://localhost:3333"
 
 }
 
@@ -156,7 +168,7 @@ let podium;
 
 describe('Podium', function() {
 
-	this.timeout(5000)
+	this.timeout(20000)
 
 	// Instantiate podium with a random App ID
 	// to guarantee a clean test environment
@@ -166,15 +178,23 @@ describe('Podium', function() {
 			.then(api => {
 				podium = api
 				this.podium = api
-				done()
+				return this.podium.createNetwork()
 			})
+			.then(() => done())
 			.catch(error => done(error))
 	})
 
 
 	// Ensure the podium object instantiated correctly
 	it("instantiates", function() {
-		return expect(this.podium).to.be.instanceOf(Podium)
+		expect(this.podium).to.be.instanceOf(Podium)
+	})
+
+	it("creates a fresh network", function() {
+		expect(this.podium.rootAddress).to
+			.be.a("string")
+			.and.have.a.lengthOf(51)
+			.and.match(/^9/)
 	})
 
 
@@ -334,11 +354,9 @@ describe('Podium', function() {
 				.becomeServer()
 				.then(server => {
 					this.podium = server
-					return Promise.all([
-						this.podium.resetDB(),
-						this.podium.serve()
-					])
+					return this.podium.createNetwork()
 				})
+				.then(() => this.podium.serve())
 				.then(() => done())
 				.catch(error => done(error))
 		})
@@ -348,8 +366,15 @@ describe('Podium', function() {
 				.be.an.instanceOf(PodiumServer)
 		})
 
+		it("creates a fresh network", function() {
+			expect(this.podium.rootAddress).to
+				.be.a("string")
+				.and.have.a.lengthOf(51)
+				.and.match(/^9/)
+		})
+
 		it("accepts requests", function(done) {
-			chai.request(testConfig.ServerURL)
+			chai.request(clientTestConfig.ServerURL)
   				.get('/')
   				.end((err, res) => {
   					expect(err).to.be.null
@@ -451,6 +476,12 @@ describe('Podium', function() {
 			})
 
 
+			// Test search
+			describe("Search", function() {
+				shouldSearchUsers()
+			})
+
+
 		})
 
 
@@ -459,8 +490,8 @@ describe('Podium', function() {
 
 			before(function(done) {
 				this.podiumServer = this.podium
-				podium
-					.becomeClient()
+				var podiumClient = new PodiumClient()
+					.connect(clientTestConfig)
 					.then(client => {
 						this.podium = client
 						done()
@@ -471,6 +502,13 @@ describe('Podium', function() {
 			it("instiantiates the client", function() {
 				expect(this.podium).to
 					.be.an.instanceOf(PodiumClient)
+			})
+
+			it("retrieves config data from server", function() {
+				expect(this.podium.rootAddress).to
+					.be.a("string")
+					.and.have.a.lengthOf(51)
+					.and.match(/^9/)
 			})
 
 			describe("Client Users", function() {
@@ -504,7 +542,7 @@ describe('Podium', function() {
 						prepareProfiles(this, done)
 					})
 					shouldCreateProfiles()
-					it("caches profiles")
+					shouldCacheProfiles()
 				})
 
 
@@ -515,14 +553,13 @@ describe('Podium', function() {
 					})
 					shouldFollow()
 					shouldCreateFollowAlerts()
-					it("caches index of followers")
-					it("caches index of followed users")
+					shouldCacheFollowData()
 					describe("...and Unfollowing", function() {
 						before(function(done) {
 							prepareUnfollow(this, done)
 						})
 						shouldUnfollow()
-						it("removes unfollowed users from cached index")
+						shouldCacheUnfollowData()
 					})
 				})
 
@@ -537,9 +574,7 @@ describe('Podium', function() {
 					})
 					shouldCreatePosts()
 					shouldCreatePostAlerts()
-					it("caches post content")
-					it("caches index of posts per user")
-					it("caches index of replies per post")
+					shouldCachePostData()
 				})
 
 
@@ -547,6 +582,13 @@ describe('Podium', function() {
 				describe("Alerts", function() {
 					shouldFlagSeenAlerts()
 				})
+
+
+				// Test search
+				describe("Search", function() {
+					shouldSearchUsers()
+				})
+
 
 			})
 

@@ -66,3 +66,30 @@ export function shouldCreateProfiles() {
 }
 
 
+
+export function shouldCacheProfiles() {
+
+	it("caches profiles", function(done) {
+		this.timeout(10)
+		this.user.profile(false)
+			.then(profile => {
+				expect(this.profile).to
+					.be.an.instanceOf(Map)
+				expect(this.profile).to
+					.have.property("id", this.userData.id)
+				expect(this.profile).to
+					.have.property("name", this.userData.name)
+				expect(this.profile).to
+					.have.property("bio", this.userData.bio)
+				expect(profile).to
+					.equal(this.user.cache.get("profile"))
+				done()
+			})
+			.catch(error => done(error))
+	})
+
+}
+
+
+
+

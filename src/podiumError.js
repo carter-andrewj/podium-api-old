@@ -35,6 +35,8 @@ export class PodiumError extends Error {
 				return "Server Offline."
 			case (101):
 				return "Forbidden: Remote cannot write to ledger."
+			case (102):
+				return "Forbidden: Remote cannot create new network."
 
 			// Server-specific errors
 			case (200):

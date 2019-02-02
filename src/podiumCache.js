@@ -10,7 +10,7 @@ export class PodiumCache {
 	constructor(emptyCache, lifetime) {
 		this.last = Map()
 		this.emptyCache = fromJS(emptyCache)
-		this.cache = fromJS(emptyCache)
+		this.cache = emptyCache
 		this.lifetime = lifetime || 1000 * 60
 	}
 
@@ -18,11 +18,12 @@ export class PodiumCache {
 	get() {
 		const args = Array.prototype.slice.call(arguments)
 		if (args.length === 0) {
-			return this.cache.toJS()
+			return fromJS(this.cache)
 		} else if (args.length === 1) {
-			return this.cache.get(args[0])
+			return this.cache[args[0]]
 		} else {
-			return this.cache.getIn(args)
+			return this.cache[args[0]]
+				.getIn(args.slice(1, args.length))
 		}
 	}
 
@@ -34,46 +35,55 @@ export class PodiumCache {
 	}
 
 	age(key) {
-		return Math.max(this.last.getIn([key, "update"]),
-						this.last.getIn([key, "full"]))
+		return Math.max(this.last.getIn([key, "update"]) || 0,
+						this.last.getIn([key, "full"]) || 0)
 	}
 
 
 	add(key, value) {
-		this.cache.update(key, v => v.add(value))
-		this.last.setIn([key, "update"], (new Date).getTime())
+		this.cache[key] = this.cache[key].add(value)
+		this.last = this.last
+			.setIn([key, "update"], (new Date).getTime())
 	}
 
 	remove(key, value) {
-		this.cache.update(key, v => v.delete(value))
-		this.last.setIn([key, "update"], (new Date).getTime())
+		this.cache[key] = this.cache[key].delete(value)
+		this.last = this.last
+			.setIn([key, "update"], (new Date).getTime())
 	}
 
 
 	set(keys, value) {
-		this.cache.setIn(keys, value)
-		this.last.setIn([keys[0], "update"], (new Date).getTime())
+		this.cache[keys[0]] = this.cache[keys[0]]
+			.setIn(keys.slice(1, keys.length), value)
+		this.last = this.last
+			.setIn([keys[0], "update"], (new Date).getTime())
 	}
 
 	unset(keys) {
-		this.cache.setIn(keys, undefined)
-		this.last.setIn([keys[0], "update"], (new Date).getTime())
+		this.cache[keys[0]] = this.cache[keys[0]]
+			.setIn(keys.slice(1, keys.length), undefined)
+		this.last = this.last
+			.setIn([keys[0], "update"], (new Date).getTime())
 	}
 
 
 	swap(key, values) {
-		this.cache.set(key, values)
-		this.last.setIn([key, "full"], (new Date).getTime())
+		this.cache[key] = values
+		this.last = this.last
+			.setIn([key, "full"], (new Date).getTime())
 	}
 
 	union(key, values) {
-		this.cache.update(key, v => v.union(values))
-		this.last.setIn([key, "full"], (new Date).getTime())
+		this.cache[key] = this.cache[key].union(values)
+		this.last = this.last
+			.setIn([key, "full"], (new Date).getTime())
 	}
 
 	clear(key) {
-		this.cache.set(key, this.emptyCache.get(key))
-		this.last.setIn([key, "full"], undefined)
+		this.cache[key] = this.emptyCache.get(key)
+		this.last = this.last
+			.setIn([key, "full"], undefined)
 	}
 
 }

@@ -270,3 +270,62 @@ export function shouldCreatePostAlerts() {
 
 
 
+export function shouldCachePostData() {
+
+	it("caches post content", function(done) {
+		this.timeout(10)
+		this.post.content(false)
+			.then(content => {
+				expect(content).to
+					.have.property("text", this.postData.text)
+				expect(content).to
+					.have.property("parent", null)
+				expect(content).to
+					.have.property("grandparent", null)
+				expect(content).to
+					.have.property("origin", this.post.address)
+				expect(content).to
+					.have.property("depth", 0)
+				expect(content).to
+					.equal(this.post.cache.get("content"))
+				done()
+			})
+			.catch(error => done(error))
+	})
+
+	it("caches index of posts per user", function(done) {
+		this.timeout(10)
+		this.user.posts(false)
+			.then(posts => {
+				expect(posts).to
+					.be.an.instanceOf(Set)
+					.and.have.size(2)
+					.and.include(this.post.address)
+					.and.include(this.thread.address)
+				expect(posts).to
+					.equal(this.user.cache.get("posts"))
+				done()
+			})
+			.catch(error => done(error))
+	})
+
+	it("caches index of replies per post", function(done) {
+		this.timeout(10)
+		this.post.replies(false)
+			.then(replies => {
+				expect(replies).to
+					.be.an.instanceOf(Set)
+					.and.have.size(1)
+					.and.include(this.reply.address)
+				expect(replies).to
+					.equal(this.post.cache.get("replies"))
+				done()
+			})
+			.catch(error => done(error))
+	})
+
+}
+
+
+
+

@@ -124,7 +124,7 @@ export class PodiumClientPost extends PodiumPost {
 	}
 
 
-	content(force) {
+	content(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.cache.is("content")) {
 				resolve(this.cache.get("content"))
@@ -141,7 +141,7 @@ export class PodiumClientPost extends PodiumPost {
 
 
 
-	replies(force) {
+	replies(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.cache.is("replies")) {
 				resolve(this.cache.get("replies"))
@@ -156,7 +156,7 @@ export class PodiumClientPost extends PodiumPost {
 		})
 	}
 
-	promotions(force) {
+	promotions(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.cache.is("promotions")) {
 				resolve(this.cache.get("promotions"))
@@ -171,7 +171,7 @@ export class PodiumClientPost extends PodiumPost {
 		})
 	}
 
-	reports(force) {
+	reports(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.isCached("reports")) {
 				resolve(this.cached("reports"))

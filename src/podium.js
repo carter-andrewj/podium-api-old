@@ -7,6 +7,8 @@ import s3 from 'aws-sdk/clients/s3';
 import loki from 'lokijs';
 import { LokiStore } from 'connect-loki';
 import { v4 as uuid } from 'uuid';
+import keypair from 'keypair';
+import crypto from 'crypto';
 
 import FormData from 'form-data';
 import fetch from 'node-fetch';
@@ -27,10 +29,6 @@ import { getAccount } from './utils';
 
 
 
-//TODO - Replace this with a call to an environment variable
-// const sessionSecretKey = "podium secret key of destiny"
-
-
 
 
 export class Podium {
@@ -47,9 +45,6 @@ export class Podium {
 		}
 		if (!process.env.AWS_SECRET_ACCESS_KEY) {
 			throw (new PodiumError).withCode(901)
-		}
-		if (!process.env.PODIUM_SERVER_KEY) {
-			throw (new PodiumError).withCode(902)
 		}
 
 		// Set up global variables
@@ -770,6 +765,13 @@ export class PodiumServer extends Podium {
 			Podium.prototype.connect.call(this, config)
 			this.port = config.ServerPort || 3000
 
+			// Generate keypair
+			const serverKeys = keypair();
+			this.config = this.config
+				.set("publicKey", serverKeys.public)
+			this.publicKey = serverKeys.public
+			this.privateKey = serverKeys.private
+
 			// Initialize database
 			this.initDB()
 				.then(db => {
@@ -1089,18 +1091,23 @@ export class PodiumServer extends Podium {
 
 	withIdentity(encryptedKeyPair) {
 		return new Promise((resolve, reject) => {
+			// const wrappedKeyPair = JSON.parse(crypto.privateDecrypt(
+			// 	{
+			// 		key: this.privateKey,
+			// 		padding: constants.RSA_NO_PADDING
+			// 	},
+			// 	encryptedKeyPair,
+			// ))
 			RadixKeyStore
 				.decryptKey(
 					JSON.parse(encryptedKeyPair),
-					process.env.PODIUM_SERVER_KEY
+					this.publicKey
 				)
 				.then(keyPair => {
 					const identity = new RadixSimpleIdentity(keyPair)
 					resolve(this.user().activeUser(identity))
 				})
-				.catch(error => reject(
-					(new PodiumError()).withCode(200)
-				))
+				.catch(error => reject(error))
 		})
 	}
 
@@ -1301,6 +1308,7 @@ export class PodiumClient extends Podium {
 								.then(serverConfig => {
 									Podium.prototype.connect
 										.call(this, serverConfig)
+									this.publicKey = serverConfig.publicKey
 									resolve(this)
 								})
 								.catch(error => reject(error))
@@ -1352,11 +1360,17 @@ export class PodiumClient extends Podium {
 
 			// Add credentials to body, if required
 			if (identity) {
-				const keyPair = await RadixKeyStore.encryptKey(
-					identity.keyPair,
-					process.env.PODIUM_SERVER_KEY
-				)
-				body.append("keyPair", JSON.stringify(keyPair))
+				const encryptedKeyPair = await RadixKeyStore
+					.encryptKey(identity.keyPair, this.publicKey)
+					.catch(error => reject(error))
+				// const encryptedKeyPair = crypto.publicEncrypt(
+				// 	{
+				// 		key: this.publicKey,
+				// 		padding: constants.RSA_NO_PADDING
+				// 	},
+				// 	new Buffer.from(JSON.stringify(wrappedKeyPair))
+				// )
+				body.append("keyPair", JSON.stringify(encryptedKeyPair))
 			}
 
 			// Post data

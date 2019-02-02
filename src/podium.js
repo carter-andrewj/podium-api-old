@@ -219,7 +219,6 @@ export class Podium {
 			accounts,	// Destination accounts for record [Array]
 			payload		// Payload of record to be sent [Object{}]
 		) {
-		if (!identity) { throw new Error("Missing Identity") }
 		return new Promise((resolve, reject) => {
 			if (accounts.length === 0) {
 				reject(new Error("Received empty accounts array"));
@@ -824,16 +823,6 @@ export class PodiumServer extends Podium {
 				})
 				.catch(error => reject(error))
 
-		})
-	}
-
-
-	createNetwork() {
-		return new Promise((resolve, reject) => {
-			Podium.prototype.createNetwork.call(this)
-				.then(() => this.resetDB())
-				.then(() => resolve(this))
-				.catch(error => reject(error))
 		})
 	}
 

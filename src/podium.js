@@ -70,7 +70,7 @@ export class Podium {
 			this.config = fromJS(config);
 			this.appID = config.ApplicationID || "podium";
 			this.version = config.ApplicationVersion || 0;
-			this.app = `${this.appID}/${this.version}`;
+			this.app = `${this.appID}|${this.version}`;
 			this.launched = (new Date).getTime()
 			this.timeout = config.Timeout || 10000;
 			this.lifetime = config.Lifetime || 60000;
@@ -507,16 +507,13 @@ export class Podium {
 
 
 
-
-// NETWORK
-
 	createNetwork() {
 		return new Promise((resolve, reject) => {
 
 			// Increment network version to ensure
 			// empty Radix atom space
 			this.version = this.version + 1
-			this.app = `${this.appID}/${this.version}`
+			this.app = `${this.appID}|${this.version}`
 
 			this.config = this.config
 				.set("ApplicationVersion", this.version)
@@ -526,7 +523,7 @@ export class Podium {
 				console.log(`Created New Network: ${this.app}`)
 			}
 
-			// Create root podium account
+			// Reset database
 			const rootUserData = this.config.get("RootUser")
 			const rootPassword = uuid()
 			this.createUser(
@@ -557,10 +554,6 @@ export class Podium {
 
 		})
 	}
-
-
-
-
 
 
 
@@ -772,11 +765,65 @@ export class PodiumServer extends Podium {
 			this.publicKey = serverKeys.public
 			this.privateKey = serverKeys.private
 
+			console.log("pre DB")
+
 			// Initialize database
 			this.initDB()
 				.then(db => {
+					console.log("initialized database")
 					this.db = db
 					resolve(this)
+				})
+				.catch(error => reject(error))
+
+		})
+	}
+
+
+	createNetwork() {
+		return new Promise((resolve, reject) => {
+
+			// Increment network version to ensure
+			// empty Radix atom space
+			this.version = this.version + 1
+			this.app = `${this.appID}|${this.version}`
+
+			this.config = this.config
+				.set("ApplicationVersion", this.version)
+
+			const rootUserData = this.config.get("RootUser")
+			const rootPassword = uuid()
+
+			// Log out network settings
+			if (!this.config.get("SupressCreateNetworkOutput")) {
+				console.log(`Created New Network: ${this.app}`)
+			}
+
+			// Reset database
+			this.resetDB()
+				.then(() => this.createUser(
+					rootUserData.get("ID"),
+					rootPassword,
+					rootUserData.get("Name"),
+					rootUserData.get("Bio")
+				))
+				.then(rootUser => {
+
+					// Log out credentials
+					if (!this.config.get("SupressCreateNetworkOutput")) {
+						console.log(`Created Root User`)
+						console.log(` > ID: ${rootUserData.get("ID")}`)
+						console.log(` > Password: ${rootPassword}`)
+						console.log(` > Address: ${rootUser.address}`)
+					}
+
+					// Store address and resolve
+					this.rootAddress = rootUser.address
+					this.rootUser = rootUser
+					this.config = this.config
+						.set("RootAddress", this.rootAddress)
+					resolve(this)
+
 				})
 				.catch(error => reject(error))
 
@@ -799,40 +846,41 @@ export class PodiumServer extends Podium {
 
 	initDB() {
 		return new Promise((resolve, reject) => {
-			let db = new loki(
-				this.config.get("DatabaseName"),
-				{
-					autosave: true, 
-					autosaveInterval: this.config.get("BackupFrequency"),
-					autoload: true,
-					autoloadCallback: () => {
+			console.log("starting db init", this.config.get("BackupFrequency"))
+			let db = new loki(`${this.app}.db`, {
+				autosave: true, 
+				autosaveInterval: this.config.get("BackupFrequency"),
+				autoload: true,
+				autoloadCallback: () => {
+					console.log("start of autoload callback")
 
-						// Confirm or create store for user records
-						const users =
-							db.getCollection("users") ||
-							db.addCollection("users", {
-								unique: ["id", "address"]
-							});
+					// Confirm or create store for user records
+					const users =
+						db.getCollection("users") ||
+						db.addCollection("users", {
+							unique: ["id", "address"]
+						});
 
-						// Confirm or create store for alerts
-						let alerts = db.getCollection("alerts")
-						if (!alerts) {
-							alerts = db.addCollection("alerts", {
-								ttl: 7 * 24 * 60 * 60 * 1000,		// Alerts are kept for 1 week
-								ttlInterval: 24 * 60 * 60 * 1000	// And cleared out daily
-							})
-						}
-
-						//TODO - Initialize topics, etc...
-
-						//TODO - Add dynamic views for quick searching, curating, etc...
-
-						// Make sure the db save object is created
-						db.saveDatabase(() => resolve(db))
-
+					// Confirm or create store for alerts
+					let alerts = db.getCollection("alerts")
+					if (!alerts) {
+						alerts = db.addCollection("alerts", {
+							ttl: 7 * 24 * 60 * 60 * 1000,		// Alerts are kept for 1 week
+							ttlInterval: 24 * 60 * 60 * 1000	// And cleared out daily
+						})
 					}
+
+					console.log("inside DB init")
+
+					//TODO - Initialize topics, etc...
+
+					//TODO - Add dynamic views for quick searching, curating, etc...
+
+					// Make sure the db save object is created
+					db.saveDatabase(() => resolve(db))
+
 				}
-			)
+			})
 		})
 	}
 

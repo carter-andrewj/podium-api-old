@@ -53,7 +53,7 @@ const testConfig = {
 	"SupressCreateNetworkOutput": true,
 
 	"Universe": "alphanet",
-	"ApplicationID": `podium-TEST-${Math.random()}`,
+	"ApplicationID": `podium|TEST|${Math.random()}`,
 	"ApplicationVersion": 0,
 	"Timeout": 10,
 	"Lifetime": 0,
@@ -63,8 +63,7 @@ const testConfig = {
 	"MediaStore": "test-media.podium-network.com",
 	"FileLimit": "5mb",
 	
-	"DatabaseName": "test/testdata/test.db",
-	"BackupFrequency": 600,
+	"BackupFrequency": 60000,
 
 	"RootUser": {
 		"ID": "podiumTestRoot",
@@ -353,6 +352,7 @@ describe('Podium', function() {
 			podium
 				.becomeServer()
 				.then(server => {
+					console.log("became server")
 					this.podium = server
 					return this.podium.createNetwork()
 				})

@@ -765,12 +765,9 @@ export class PodiumServer extends Podium {
 			this.publicKey = serverKeys.public
 			this.privateKey = serverKeys.private
 
-			console.log("pre DB")
-
 			// Initialize database
 			this.initDB()
 				.then(db => {
-					console.log("initialized database")
 					this.db = db
 					resolve(this)
 				})
@@ -846,13 +843,11 @@ export class PodiumServer extends Podium {
 
 	initDB() {
 		return new Promise((resolve, reject) => {
-			console.log("starting db init", this.config.get("BackupFrequency"))
 			let db = new loki(`${this.app}.db`, {
 				autosave: true, 
 				autosaveInterval: this.config.get("BackupFrequency"),
 				autoload: true,
 				autoloadCallback: () => {
-					console.log("start of autoload callback")
 
 					// Confirm or create store for user records
 					const users =
@@ -869,8 +864,6 @@ export class PodiumServer extends Podium {
 							ttlInterval: 24 * 60 * 60 * 1000	// And cleared out daily
 						})
 					}
-
-					console.log("inside DB init")
 
 					//TODO - Initialize topics, etc...
 

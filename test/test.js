@@ -352,7 +352,6 @@ describe('Podium', function() {
 			podium
 				.becomeServer()
 				.then(server => {
-					console.log("became server")
 					this.podium = server
 					return this.podium.createNetwork()
 				})

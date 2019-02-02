@@ -550,7 +550,7 @@ export class Podium {
 					this.rootUser = rootUser
 					this.config = this.config
 						.set("RootAddress", this.rootAddress)
-					resolve()
+					resolve(this)
 
 				})
 				.catch(error => reject(error))
@@ -788,7 +788,7 @@ export class PodiumServer extends Podium {
 		return new Promise((resolve, reject) => {
 			Podium.prototype.createNetwork.call(this)
 				.then(() => this.resetDB())
-				.then(() => resolve())
+				.then(() => resolve(this))
 				.catch(error => reject(error))
 		})
 	}

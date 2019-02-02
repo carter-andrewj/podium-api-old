@@ -718,6 +718,7 @@ export class Podium {
 					resolve(ownershipRecord.get("owner"))
 				)
 				.catch(error => {
+					console.log("error", error)
 					if (error.code === 2) {
 						resolve(false)
 					} else {

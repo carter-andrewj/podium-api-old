@@ -273,11 +273,16 @@ export class PodiumClientUser extends PodiumUser {
 
 
 	load() {
-		this.profile(true).catch(checkThrow)
-		this.followed(true).catch(checkThrow)
-		this.followers(true).catch(checkThrow)
-		this.posts(true).catch(checkThrow)
-		return this
+		return new Promise((resolve, reject) => {
+			var profilePromise = this.profile(true)
+			var followedPromise = this.followed(true)
+			var followerPromise = this.followers(true)
+			var postsPromise = this.posts(true)
+			Promise.all([profilePromise, followedPromise,
+						 followerPromise, postsPromise])
+				.then(() => resolve(this))
+				.catch(error => reject(error))
+		})
 	}
 
 
@@ -315,7 +320,14 @@ export class PodiumClientUser extends PodiumUser {
 						this.cache.swap("posts", posts)
 						resolve(posts)
 					})
-					.catch(error => reject(error))
+					.catch(error => {
+						if (error.code === 2) {
+							this.cache.clear("posts")
+							resolve(Set())
+						} else {
+							reject(error)
+						}
+					})
 			}
 		})
 	}
@@ -332,7 +344,14 @@ export class PodiumClientUser extends PodiumUser {
 						this.cache.swap("followed", followed)
 						resolve(followed)
 					})
-					.catch(error => reject(error))
+					.catch(error => {
+						if (error.code === 2) {
+							this.cache.clear("followed")
+							resolve(Set())
+						} else {
+							reject(error)
+						}
+					})
 			}
 		})
 	}
@@ -349,7 +368,14 @@ export class PodiumClientUser extends PodiumUser {
 						this.cache.swap("followers", followers)
 						resolve(followers)
 					})
-					.catch(error => reject(error))
+					.catch(error => {
+						if (error.code === 2) {
+							this.cache.clear("followers")
+							resolve(Set())
+						} else {
+							reject(error)
+						}
+					})
 			}
 		})
 	}

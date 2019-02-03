@@ -27,6 +27,31 @@ export function shouldUnfollow() {
 		return expect(testUnfollowed).to.eventually.be.false
 	})
 
+}
+
+
+export function shouldUnfollowWithoutRoot() {
+
+	it("can correctly see which users now follow them", function() {
+		var unfollowers = this.otherUser.followers(true)
+		return expect(unfollowers).to.eventually
+			.be.an.instanceOf(Set)
+			.and.have.size(0)
+	})
+
+
+	it("can correctly see which users they now follow", function() {
+		var unfollowing = this.user.followed(true)
+		return expect(unfollowing).to.eventually
+			.be.an.instanceOf(Set)
+			.and.have.size(0)
+	})
+
+}
+
+
+
+export function shouldUnfollowWithRoot() {
 
 	it("can correctly see which users now follow them", function() {
 		var unfollowers = this.otherUser.followers(true)

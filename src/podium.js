@@ -506,55 +506,6 @@ export class Podium {
 
 
 
-	createNetwork() {
-		return new Promise((resolve, reject) => {
-
-			// Increment network version to ensure
-			// empty Radix atom space
-			this.version = this.version + 1
-			this.app = `${this.appID}|${this.version}`
-
-			this.config = this.config
-				.set("ApplicationVersion", this.version)
-
-			// Log out network settings
-			if (!this.config.get("SupressCreateNetworkOutput")) {
-				console.log(`Created New Network: ${this.app}`)
-			}
-
-			// Reset database
-			const rootUserData = this.config.get("RootUser")
-			const rootPassword = uuid()
-			this.createUser(
-					rootUserData.get("ID"),
-					rootPassword,
-					rootUserData.get("Name"),
-					rootUserData.get("Bio")
-				)
-				.then(rootUser => {
-
-					// Log out credentials
-					if (!this.config.get("SupressCreateNetworkOutput")) {
-						console.log(`Created Root User`)
-						console.log(` > ID: ${rootUserData.get("ID")}`)
-						console.log(` > Password: ${rootPassword}`)
-						console.log(` > Address: ${rootUser.address}`)
-					}
-
-					// Store address and resolve
-					this.rootAddress = rootUser.address
-					this.rootUser = rootUser
-					this.config = this.config
-						.set("RootAddress", this.rootAddress)
-					resolve(this)
-
-				})
-				.catch(error => reject(error))
-
-		})
-	}
-
-
 
 
 // CREATE USERS
@@ -674,24 +625,16 @@ export class Podium {
 							.then(() => this.user(address).signIn(id, pw))
 							.then(activeUser => {
 
-								// Auto-follow root account
-								let followPromise;
-								if (this.rootAddress) {
-									followPromise = activeUser
-										.follow(this.rootAddress)
-								}
-
 								// Set user's profile picture
 								let picturePromise;
 								if (picture) {
 									picturePromise = activeUser
 										.updateProfilePicture(picture, ext)
+										.then(() => resolve(activeUser))
+										.catch(error => reject(error))
+								} else {
+									resolve(activeUser)
 								}
-
-								// Wait for tasks to complete
-								Promise.all([followPromise, picturePromise])
-									.then(() => resolve(activeUser))
-									.catch(error => reject(error))
 
 							})
 							.catch(error => reject(error))
@@ -718,7 +661,6 @@ export class Podium {
 					resolve(ownershipRecord.get("owner"))
 				)
 				.catch(error => {
-					console.log("error", error)
 					if (error.code === 2) {
 						resolve(false)
 					} else {
@@ -988,13 +930,25 @@ export class PodiumServer extends Podium {
 					ext
 				)
 				.then(activeUser => {
+
+					// Add user to roster
 					this.db
 						.getCollection("users")
 						.insert({
 							address: activeUser.address,
 							id: id
 						})
-					resolve(activeUser)
+
+					// Follow root account
+					if (this.rootAddress) {
+						activeUser
+							.follow(this.rootAddress)
+							.then(() => resolve(activeUser))
+							.catch(error => reject(error))
+					} else {
+						resolve(activeUser)
+					}
+
 				})
 				.catch(error => reject(error))
 		})
@@ -1084,8 +1038,11 @@ export class PodiumServer extends Podium {
 				.getCollection("users")
 				.find({ "id": { "$regex": target }})
 			const results = fromJS(records)
-				.map(rec => rec.get("address"))
-				.toSet()
+				.map(rec => Map({
+					address: rec.get("address"),
+					id: rec.get("id")
+				}))
+				.toList()
 			resolve(results)
 		})
 	}
@@ -1372,9 +1329,6 @@ export class PodiumClient extends Podium {
 		throw (new PodiumError).withCode(101)
 	}
 
-	createNetwork() {
-		throw (new PodiumError).withCode(102)
-	}
 
 
 // SERVER INTERFACE
@@ -1506,7 +1460,7 @@ export class PodiumClient extends Podium {
 	search(target) {
 		return new Promise((resolve, reject) => {
 			this.dispatch("/search", { target: target })
-				.then(results => resolve(results.toSet()))
+				.then(results => resolve(results.toList()))
 				.catch(error => reject(error))
 		})
 	}

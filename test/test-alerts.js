@@ -47,7 +47,7 @@ export function shouldCleanUpOldAlerts() {
 	it("cleans up stale alerts", function(done) {
 
 		// Get current alerts
-		var alerts = this.podiumServer.db.getCollection("alerts")
+		var alerts = this.podium.db.getCollection("alerts")
 		
 		// Check current number of alerts is as expected
 		// 2 follows of root, 1 follow, 2 replies, 1 mention

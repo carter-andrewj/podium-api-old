@@ -116,11 +116,16 @@ export class PodiumClientPost extends PodiumPost {
 
 
 	load() {
-		this.content(true).catch(checkThrow)
-		this.replies(true).catch(checkThrow)
-		this.promotions(true).catch(checkThrow)
-		this.reports(true).catch(checkThrow)
-		return this
+		return new Promise((resolve, reject) => {
+			var contentPromise = this.content(true)
+			var replyPromise = this.replies(true)
+			var promoPromise = this.promotions(true)
+			var reportPromise = this.reports(true)
+			Promise.all([contentPromise, replyPromise,
+						 promoPromise, reportPromise])
+				.then(() => resolve(this))
+				.catch(error => reject(error))
+		})
 	}
 
 
@@ -151,7 +156,14 @@ export class PodiumClientPost extends PodiumPost {
 						this.cache.swap("replies", replyIndex)
 						resolve(replyIndex)
 					})
-					.catch(error => reject(error))
+					.catch(error => {
+						if (error.code === 2) {
+							this.cache.clear("replies")
+							resolve(Set())
+						} else {
+							reject(error)
+						}
+					})
 			}
 		})
 	}
@@ -166,7 +178,14 @@ export class PodiumClientPost extends PodiumPost {
 						this.cache.swap("promotions", promoIndex)
 						resolve(promoIndex)
 					})
-					.catch(error => reject(error))
+					.catch(error => {
+						if (error.code === 2) {
+							this.cache.clear("promotions")
+							resolve(Set())
+						} else {
+							reject(error)
+						}
+					})
 			}
 		})
 	}
@@ -181,7 +200,14 @@ export class PodiumClientPost extends PodiumPost {
 						this.cache.swap("reports", reportIndex)
 						resolve(reportIndex)
 					})
-					.catch(error => reject(error))
+					.catch(error => {
+						if (error.code === 2) {
+							this.cache.clear("reports")
+							resolve(Set())
+						} else {
+							reject(error)
+						}
+					})
 			}
 		})
 	}

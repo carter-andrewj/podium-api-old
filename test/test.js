@@ -23,8 +23,10 @@ import { prepareUsers, shouldCreateUsers } from './test-users';
 import { prepareProfiles, shouldCreateProfiles,
 		 shouldCacheProfiles } from './test-profiles';
 import { prepareFollow, shouldFollow,
+		 shouldFollowWithRoot, shouldFollowWithoutRoot,
 		 shouldCreateFollowAlerts, shouldCacheFollowData } from './test-following';
 import { prepareUnfollow, shouldUnfollow,
+		 shouldUnfollowWithRoot, shouldUnfollowWithoutRoot,
 		 shouldCacheUnfollowData } from './test-unfollowing';
 import { preparePosts, shouldCreatePosts,
 		 shouldCreatePostAlerts, shouldCachePostData } from './test-posting';
@@ -41,10 +43,10 @@ chai.use(chaiHttp);
 require('events').EventEmitter.prototype._maxListeners = 1000;
 
 // Helper for catching unfilled promises
-// process.on('unhandledRejection', err => {
-// 	console.log(err)
-// 	process.exit(1)
-// });
+process.on('unhandledRejection', err => {
+	console.log(err)
+	process.exit(1)
+});
 
 
 const testConfig = {
@@ -177,9 +179,8 @@ describe('Podium', function() {
 			.then(api => {
 				podium = api
 				this.podium = api
-				return this.podium.createNetwork()
+				done()
 			})
-			.then(() => done())
 			.catch(error => done(error))
 	})
 
@@ -187,13 +188,6 @@ describe('Podium', function() {
 	// Ensure the podium object instantiated correctly
 	it("instantiates", function() {
 		expect(this.podium).to.be.instanceOf(Podium)
-	})
-
-	it("creates a fresh network", function() {
-		expect(this.podium.rootAddress).to
-			.be.a("string")
-			.and.have.a.lengthOf(51)
-			.and.match(/^9/)
 	})
 
 
@@ -315,11 +309,13 @@ describe('Podium', function() {
 				prepareFollow(this, done)
 			})
 			shouldFollow()
+			shouldFollowWithoutRoot()
 			describe("...and Unfollowing", function() {
 				before(function(done) {
 					prepareUnfollow(this, done)
 				})
 				shouldUnfollow()
+				shouldUnfollowWithoutRoot()
 			})
 		})
 
@@ -349,27 +345,19 @@ describe('Podium', function() {
 
 		// Set up server testing environment
 		before(function(done) {
-			podium
-				.becomeServer()
+			var podiumServer = new PodiumServer()
+				.connect(testConfig)
 				.then(server => {
 					this.podium = server
-					return this.podium.createNetwork()
+					this.podium.serve()
+					done()
 				})
-				.then(() => this.podium.serve())
-				.then(() => done())
 				.catch(error => done(error))
 		})
 
 		it("instiantiates", function() {
 			expect(this.podium).to
 				.be.an.instanceOf(PodiumServer)
-		})
-
-		it("creates a fresh network", function() {
-			expect(this.podium.rootAddress).to
-				.be.a("string")
-				.and.have.a.lengthOf(51)
-				.and.match(/^9/)
 		})
 
 		it("accepts requests", function(done) {
@@ -389,191 +377,102 @@ describe('Podium', function() {
 		})
 
 
-
-
-		describe("Server Users", function() {
+		describe("Network", function() {
 
 			before(function(done) {
-				this.userData = testUserC
-				this.otherUserData = testUserD
-				this.userType = PodiumServerActiveUser
-				this.passiveUserType = PodiumServerUser
-				this.testImage = testImage
-				prepareUsers(this, done)
-			})
-
-
-			// Test User Creation
-			shouldCreateUsers()
-
-			it("are added to the user roster", function() {
-				var dbUsers = this.podium
-					.db.getCollection("users")
-				var userCount = dbUsers.count()
-				var userRecord = dbUsers.findOne({ "id": this.userData.id })
-				expect(userCount).to
-					.equal(2)
-				expect(userRecord).to
-					.have.property("id", this.userData.id)
-				expect(userRecord).to
-					.have.property("address", this.user.address)
-			})
-
-			it("can receive alerts", function() {
-				var alerts = this.user.alerts(1, true)
-				return expect(alerts).to.eventually
-					.be.instanceOf(List)
-					.and.have.size(0)
-			})
-
-
-			// Test Profiles
-			describe("Server Profiles", function() {
-				before(function(done) {
-					prepareProfiles(this, done)
-				})
-				shouldCreateProfiles()
-			})
-
-
-			// Test Following
-			describe("Server Following...", function() {
-
-				before(function(done) {
-					prepareFollow(this, done)
-				})
-
-				shouldFollow()
-				shouldCreateFollowAlerts()
-
-				describe("...and Unfollowing", function() {
-					before(function(done) {
-						prepareUnfollow(this, done)
-					})
-					shouldUnfollow()
-				})
-
-			})
-
-
-			// Test Posting
-			describe("Server Posting", function() {
-				before(function(done) {
-					this.postData = testPostB
-					this.replyData = testReplyB
-					this.threadData = testThreadB
-					preparePosts(this, done)
-				})
-				shouldCreatePosts()
-				shouldCreatePostAlerts()
-			})
-
-
-			// Test alerts cleanup
-			describe("Alerts", function() {
-				shouldFlagSeenAlerts()
-			})
-
-
-			// Test search
-			describe("Search", function() {
-				shouldSearchUsers()
-			})
-
-
-		})
-
-
-
-		describe("Client", function() {
-
-			before(function(done) {
-				this.podiumServer = this.podium
-				var podiumClient = new PodiumClient()
-					.connect(clientTestConfig)
-					.then(client => {
-						this.podium = client
-						done()
-					})
+				this.podium.createNetwork()
+					.then(() => done())
 					.catch(error => done(error))
 			})
 
-			it("instiantiates the client", function() {
-				expect(this.podium).to
-					.be.an.instanceOf(PodiumClient)
-			})
-
-			it("retrieves config data from server", function() {
+			it("creates a fresh network", function() {
+				var dbUsers = this.podium
+					.db.getCollection("users").count()
+				expect(dbUsers).to.equal(1)
 				expect(this.podium.rootAddress).to
 					.be.a("string")
 					.and.have.a.lengthOf(51)
 					.and.match(/^9/)
 			})
 
-			describe("Client Users", function() {
+
+			describe("Server Users", function() {
 
 				before(function(done) {
-					this.userData = testUserE
-					this.otherUserData = testUserF
-					this.userType = PodiumClientActiveUser
-					this.passiveUserType = PodiumClientUser
+					this.userData = testUserC
+					this.otherUserData = testUserD
+					this.userType = PodiumServerActiveUser
+					this.passiveUserType = PodiumServerUser
 					this.testImage = testImage
 					prepareUsers(this, done)
 				})
 
 
-				// Test user creation
+				// Test User Creation
 				shouldCreateUsers()
 
 				it("are added to the user roster", function() {
-					var dbUsers = this.podiumServer.db.getCollection("users")
+					var dbUsers = this.podium
+						.db.getCollection("users")
 					var userCount = dbUsers.count()
 					var userRecord = dbUsers.findOne({ "id": this.userData.id })
-					expect(userCount).to.equal(4)
-					expect(userRecord).to.have.property("id", this.userData.id)
-					expect(userRecord).to.have.property("address", this.user.address)
+					expect(userCount).to
+						.equal(3)
+					expect(userRecord).to
+						.have.property("id", this.userData.id)
+					expect(userRecord).to
+						.have.property("address", this.user.address)
+				})
+
+				it("can receive alerts", function() {
+					var alerts = this.user.alerts(1, true)
+					return expect(alerts).to.eventually
+						.be.instanceOf(List)
+						.and.have.size(0)
 				})
 
 
 				// Test Profiles
-				describe("Client Profiles", function() {
+				describe("Server Profiles", function() {
 					before(function(done) {
 						prepareProfiles(this, done)
 					})
 					shouldCreateProfiles()
-					shouldCacheProfiles()
 				})
 
 
 				// Test Following
-				describe("Client Following...", function() {
+				describe("Server Following...", function() {
+
 					before(function(done) {
 						prepareFollow(this, done)
 					})
+
 					shouldFollow()
+					shouldFollowWithRoot()
 					shouldCreateFollowAlerts()
-					shouldCacheFollowData()
+
 					describe("...and Unfollowing", function() {
 						before(function(done) {
 							prepareUnfollow(this, done)
 						})
 						shouldUnfollow()
-						shouldCacheUnfollowData()
+						shouldUnfollowWithRoot()
 					})
+
 				})
 
 
 				// Test Posting
-				describe("Client Posting", function() {
+				describe("Server Posting", function() {
 					before(function(done) {
-						this.postData = testPostC
-						this.replyData = testReplyC
-						this.threadData = testThreadC
+						this.postData = testPostB
+						this.replyData = testReplyB
+						this.threadData = testThreadB
 						preparePosts(this, done)
 					})
 					shouldCreatePosts()
 					shouldCreatePostAlerts()
-					shouldCachePostData()
 				})
 
 
@@ -592,12 +491,121 @@ describe('Podium', function() {
 			})
 
 
+
+			describe("Client", function() {
+
+				before(function(done) {
+					this.podiumServer = this.podium
+					var podiumClient = new PodiumClient()
+						.connect(clientTestConfig)
+						.then(client => {
+							this.podium = client
+							done()
+						})
+						.catch(error => done(error))
+				})
+
+				it("instiantiates the client", function() {
+					expect(this.podium).to
+						.be.an.instanceOf(PodiumClient)
+				})
+
+				it("retrieves config data from server", function() {
+					expect(this.podium.rootAddress).to
+						.be.a("string")
+						.and.have.a.lengthOf(51)
+						.and.match(/^9/)
+				})
+
+				describe("Client Users", function() {
+
+					before(function(done) {
+						this.userData = testUserE
+						this.otherUserData = testUserF
+						this.userType = PodiumClientActiveUser
+						this.passiveUserType = PodiumClientUser
+						this.testImage = testImage
+						prepareUsers(this, done)
+					})
+
+
+					// Test user creation
+					shouldCreateUsers()
+
+					it("are added to the user roster", function() {
+						var dbUsers = this.podiumServer.db.getCollection("users")
+						var userCount = dbUsers.count()
+						var userRecord = dbUsers.findOne({ "id": this.userData.id })
+						expect(userCount).to.equal(5)
+						expect(userRecord).to.have.property("id", this.userData.id)
+						expect(userRecord).to.have.property("address", this.user.address)
+					})
+
+
+					// Test Profiles
+					describe("Client Profiles", function() {
+						before(function(done) {
+							prepareProfiles(this, done)
+						})
+						shouldCreateProfiles()
+						shouldCacheProfiles()
+					})
+
+
+					// Test Following
+					describe("Client Following...", function() {
+						before(function(done) {
+							prepareFollow(this, done)
+						})
+						shouldFollow()
+						shouldFollowWithRoot()
+						shouldCreateFollowAlerts()
+						shouldCacheFollowData()
+						describe("...and Unfollowing", function() {
+							before(function(done) {
+								prepareUnfollow(this, done)
+							})
+							shouldUnfollow()
+							shouldUnfollowWithRoot()
+							shouldCacheUnfollowData()
+						})
+					})
+
+
+					// Test Posting
+					describe("Client Posting", function() {
+						before(function(done) {
+							this.postData = testPostC
+							this.replyData = testReplyC
+							this.threadData = testThreadC
+							preparePosts(this, done)
+						})
+						shouldCreatePosts()
+						shouldCreatePostAlerts()
+						shouldCachePostData()
+					})
+
+
+					// Test alerts cleanup
+					describe("Alerts", function() {
+						shouldFlagSeenAlerts()
+					})
+
+
+					// Test search
+					describe("Search", function() {
+						shouldSearchUsers()
+					})
+
+
+				})
+
+			})
+
 			// Test global alerts cleanup
 			describe("Alerts Cleanup", function() {
 				shouldCleanUpOldAlerts()
 			})
-
-
 
 		})
 

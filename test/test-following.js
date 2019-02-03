@@ -29,6 +29,32 @@ export function shouldFollow() {
 		return expect(testFollower).to.eventually.be.true
 	})
 
+}
+
+
+export function shouldFollowWithoutRoot() {
+
+	it("can see which users they follow", function() {
+		var followers = this.otherUser.followers()
+		return expect(followers).to.eventually
+			.be.an.instanceOf(Set)
+			.and.have.size(1)
+			.and.include(this.user.address)
+	})
+
+
+	it("can see which users follow them", function() {
+		var following = this.user.followed()
+		return expect(following).to.eventually
+			.be.an.instanceOf(Set)
+			.and.have.size(1)
+			.and.include(this.otherUser.address)
+	})
+
+}
+
+
+export function shouldFollowWithRoot() {
 
 	it("automatically follow the root account", function(done) {
 		var testRoot = this.user

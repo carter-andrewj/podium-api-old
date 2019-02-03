@@ -304,17 +304,41 @@ export class Podium {
 		this.debugOut(`Fetching Account History (timeout: ${timeout}s)`)
 		return new Promise((resolve, reject) => {
 
-			// Open the account connection
-			account.openNodeConnection();
+			// Create variables
+			let channel;
+			let skipper;
+			var history = List([]);
+
+			// Set query timeout
+			const timeoutError = new PodiumError().withCode(2);
+			let radixTimeout = () => {
+				channel.unsubscribe()
+				if (history.size > 0) {
+					this.debugOut("Timed out. Resolving with current history.")
+					resolve(history.sort((a, b) =>
+						(a.get("created") > b.get("created")) ? 1 : -1
+					))
+				} else {
+					this.debugOut("Timed out. No history received.")
+					reject(timeoutError)
+				}
+			}
+			var expire = setTimeout(radixTimeout, timeout * 1000)
+
+			// Open the account connection and delay timeout
+			// in event of node connection failure
+			account.openNodeConnection()
+				.catch(error => {
+					clearTimeout(expire)
+					expire = setTimeout(radixTimeout, timeout * 1000)
+				})
 
 			// Connect to account data
 			const stream = account.dataSystem
 				.getApplicationData(this.app);
 
 			// Fetch all data from target channel
-			let skipper;
-			var history = List([]);
-			const channel = stream.subscribe({
+			channel = stream.subscribe({
 				//TODO - Rewrite to pull until up-to-date once
 				//		 radix provides the required flag.
 				//		 Currently, this just collates all
@@ -356,24 +380,6 @@ export class Podium {
 					reject(error)
 				}
 			});
-
-			// Set timeout
-			const timeoutError = new PodiumError().withCode(2);
-			expire = setTimeout(
-				() => {
-					channel.unsubscribe();
-					if (history.size > 0) {
-						this.debugOut("Timed out. Resolving with current history.")
-						resolve(history.sort((a, b) =>
-							(a.get("created") > b.get("created")) ? 1 : -1
-						))
-					} else {
-						this.debugOut("Timed out. No history received.")
-						reject(timeoutError)
-					}
-				},
-				timeout * 1000
-			)
 
 		});
 

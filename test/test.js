@@ -52,27 +52,28 @@ process.on('unhandledRejection', err => {
 const testConfig = {
 
 	"DebugMode": false,
-	"SupressCreateNetworkOutput": true,
 
-	"Universe": "alphanet",
-	"ApplicationID": `podium|TEST|${Math.random()}`,
-	"ApplicationVersion": 0,
-	"Timeout": 10,
-	"Lifetime": 0,
+	"RadixUniverse": "alphanet",
+	"RadixApplicationID": `podium|TEST|${Math.random()}`,
+	"RadixApplicationVersion": 0,
+	"RadixTimeout": 10,
+	"RadixConnectionLifetime": 0,
 
 	"ServerPort": 3333,
+	"ServerURL": "http://localhost:3333",
 
 	"MediaStore": "test-media.podium-network.com",
-	"FileLimit": "5mb",
+	"MediaSizeLimit": "5mb",
 	
-	"BackupFrequency": 60000,
+	"DatabaseBackupFrequency": 60000,
+	
+}
 
-	"RootUser": {
-		"ID": "podiumTestRoot",
-		"Name": "Podium Test Root User",
-		"Bio": "This is the bio of the Test Root User"
-	}
-	
+const testRootUser = {
+	"ID": "podiumTestRoot",
+	"Password": "rootTestPassword",
+	"Name": "Podium Test Root User",
+	"Bio": "This is the bio of the Test Root User"
 }
 
 const clientTestConfig = {
@@ -380,7 +381,7 @@ describe('Podium', function() {
 		describe("Network", function() {
 
 			before(function(done) {
-				this.podium.createNetwork()
+				this.podium.createNetwork(testRootUser)
 					.then(() => done())
 					.catch(error => done(error))
 			})

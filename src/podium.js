@@ -68,12 +68,14 @@ export class Podium {
 
 			// Extract settings from config
 			this.config = fromJS(config);
-			this.appID = config.ApplicationID || "podium";
-			this.version = config.ApplicationVersion || 0;
+
+			this.appID = config.RadixApplicationID || "podium";
+			this.version = config.RadixApplicationVersion || 0;
 			this.app = `${this.appID}|${this.version}`;
+
 			this.launched = (new Date).getTime()
-			this.timeout = config.Timeout || 10000;
-			this.lifetime = config.Lifetime || 60000;
+			this.timeout = config.RadixTimeout || 10000;
+			this.lifetime = config.RadixConnectionLifetime || 60000;
 
 			// Set root user, if provided
 			this.rootAddress = config.RootAddress;
@@ -89,7 +91,7 @@ export class Podium {
 
 			// Connect to radix network
 			//TODO - Test radix connection
-			switch (config.Universe) {
+			switch (config.RadixUniverse) {
 				case ("sunstone"):
 					radixUniverse.bootstrap(RadixUniverse.SUNSTONE);
 					break;
@@ -719,7 +721,7 @@ export class PodiumServer extends Podium {
 	}
 
 
-	createNetwork() {
+	createNetwork(rootUser) {
 		return new Promise((resolve, reject) => {
 
 			// Increment network version to ensure
@@ -728,41 +730,22 @@ export class PodiumServer extends Podium {
 			this.app = `${this.appID}|${this.version}`
 
 			this.config = this.config
-				.set("ApplicationVersion", this.version)
-
-			const rootUserData = this.config.get("RootUser")
-			const rootPassword = uuid()
-
-			// Log out network settings
-			if (!this.config.get("SupressCreateNetworkOutput")) {
-				console.log(`Created New Network: ${this.app}`)
-			}
+				.set("RadixApplicationVersion", this.version)
 
 			// Reset database
 			this.resetDB()
 				.then(() => this.createUser(
-					rootUserData.get("ID"),
-					rootPassword,
-					rootUserData.get("Name"),
-					rootUserData.get("Bio")
+					rootUser.ID,
+					rootUser.Password,
+					rootUser.Name,
+					rootUser.Bio
 				))
 				.then(rootUser => {
-
-					// Log out credentials
-					if (!this.config.get("SupressCreateNetworkOutput")) {
-						console.log(`Created Root User`)
-						console.log(` > ID: ${rootUserData.get("ID")}`)
-						console.log(` > Password: ${rootPassword}`)
-						console.log(` > Address: ${rootUser.address}`)
-					}
-
-					// Store address and resolve
 					this.rootAddress = rootUser.address
 					this.rootUser = rootUser
 					this.config = this.config
 						.set("RootAddress", this.rootAddress)
 					resolve(this)
-
 				})
 				.catch(error => reject(error))
 
@@ -777,7 +760,7 @@ export class PodiumServer extends Podium {
 		return new Promise((resolve, reject) => {
 			let db = new loki(`${this.app}.db`, {
 				autosave: true, 
-				autosaveInterval: this.config.get("BackupFrequency"),
+				autosaveInterval: this.config.get("DatabaseBackupFrequency"),
 				autoload: true,
 				autoloadCallback: () => {
 
@@ -834,7 +817,7 @@ export class PodiumServer extends Podium {
 
 		// Set up post body and file parsing
 		this.server.use(BusBoy({
-			limit: this.config.get("FileLimit")
+			limit: this.config.get("MediaSizeLimit")
 		}));
 
 		// Set up CORS

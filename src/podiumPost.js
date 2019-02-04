@@ -119,6 +119,9 @@ export class PodiumClientPost extends PodiumPost {
 	get text() { return this.cache.get("content", "text") }
 	get mentions() { return this.cache.get("content", "mentions") }
 
+	get created() { return new Date(this.cache.get("content", "created")) }
+	get latest() { return new Date(this.cache.get("content", "latest")) }
+
 	get parentAddress() { return this.cache.get("content", "parent")}
 	get parent() { return this.podium.post(this.parentAddress) }
 	get grandparentAddress() { return this.cache.get("content", "grandparent") }

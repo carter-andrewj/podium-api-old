@@ -1,7 +1,5 @@
 import { Map, List, fromJS } from 'immutable';
 
-import Express from 'express';
-// import session from 'express-session';
 import BusBoy from 'busboy-body-parser';
 import s3 from 'aws-sdk/clients/s3';
 import loki from 'lokijs';
@@ -816,10 +814,10 @@ export class PodiumServer extends Podium {
 
 // ENDPOINT
 
-	serve() {
+	serve(newServer) {
 
 		// Create server
-		this.server = Express()
+		this.server = newServer
 
 		// Set up post body and file parsing
 		this.server.use(BusBoy({

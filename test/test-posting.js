@@ -66,7 +66,7 @@ export function shouldCreatePosts() {
 		expect(this.post).to
 			.have.property("address")
 		expect(this.post).to
-			.have.property("author", this.user.address)
+			.have.property("authorAddress", this.user.address)
 	})
 
 
@@ -113,7 +113,7 @@ export function shouldCreatePosts() {
 		expect(this.reply).to
 			.have.property("address")
 		expect(this.reply).to
-			.have.property("author", this.otherUser.address)
+			.have.property("authorAddress", this.otherUser.address)
 	})
 
 
@@ -140,7 +140,7 @@ export function shouldCreatePosts() {
 		expect(this.thread).to
 			.have.property("address")
 		expect(this.thread).to
-			.have.property("author", this.user.address)
+			.have.property("authorAddress", this.user.address)
 	})
 
 	it("can receive replies to replies with correct content", function() {
@@ -274,20 +274,30 @@ export function shouldCachePostData() {
 
 	it("caches post content", function(done) {
 		this.timeout(10)
-		this.post.content(false)
+		this.thread.content(false)
 			.then(content => {
 				expect(content).to
-					.have.property("text", this.postData.text)
+					.have.property("text", this.threadData.text)
 				expect(content).to
-					.have.property("parent", null)
+					.have.property("text", this.thread.text)
 				expect(content).to
-					.have.property("grandparent", null)
+					.have.property("parent", this.reply.address)
+				expect(content).to
+					.have.property("parent", this.thread.parentAddress)
+				expect(content).to
+					.have.property("grandparent", this.post.address)
+				expect(content).to
+					.have.property("grandparent", this.thread.grandparentAddress)
 				expect(content).to
 					.have.property("origin", this.post.address)
 				expect(content).to
-					.have.property("depth", 0)
+					.have.property("origin", this.thread.originAddress)
 				expect(content).to
-					.equal(this.post.cache.get("content"))
+					.have.property("depth", 2)
+				expect(content).to
+					.have.property("depth", this.thread.depth)
+				expect(content).to
+					.equal(this.thread.cache.get("content"))
 				done()
 			})
 			.catch(error => done(error))

@@ -1012,6 +1012,14 @@ export class PodiumClientActiveUser extends PodiumClientUser {
 	}
 
 
+// GETTERS
+
+	get id() { return this.cache.get("profile", "id") }
+	get name() { return this.cache.get("profile", "name") }
+	get bio() { return this.cache.get("profile", "bio") }
+	get joinDate() { return new Date(this.cache.get("profile", "created")) }
+	get picture() { return this.cache.get("profile", "pictureURL") }
+
 
 
 // ALERTS

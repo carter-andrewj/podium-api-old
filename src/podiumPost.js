@@ -11,9 +11,9 @@ import { checkThrow } from './utils';
 export class PodiumPost extends PodiumRecord {
 
 
-	constructor(podium, address, author) {
+	constructor(podium, address, authorAddress) {
 		super(podium, address)
-		this.author = author
+		this.authorAddress = authorAddress
 	}
 
 
@@ -104,8 +104,8 @@ export class PodiumPost extends PodiumRecord {
 export class PodiumClientPost extends PodiumPost {
 
 
-	constructor(podium, address, author) {
-		super(podium, address, author)
+	constructor(podium, address, authorAddress) {
+		super(podium, address, authorAddress)
 		this.cache = new PodiumCache({
 			content: {},
 			replies: Set(),
@@ -113,6 +113,22 @@ export class PodiumClientPost extends PodiumPost {
 			reports: Set()
 		})
 	}
+
+
+
+	get text() { return this.cache.get("content", "text") }
+	get mentions() { return this.cache.get("content", "mentions") }
+
+	get parentAddress() { return this.cache.get("content", "parent")}
+	get parent() { return this.podium.post(this.parentAddress) }
+	get grandparentAddress() { return this.cache.get("content", "grandparent") }
+	get grandparent() { return this.podium.post(this.grandparentAddress) }
+	get originAddress() { return this.cache.get("content", "origin") }
+	get origin() { return (this.address !== this.originAddress) ? 
+		this.podium.post(this.originAddress) : this }
+	get depth() { return this.cache.get("content", "depth") }
+
+	get author() { return this.podium.user(this.authorAddress) }
 
 
 	load() {

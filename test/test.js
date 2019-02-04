@@ -350,7 +350,7 @@ describe('Podium', function() {
 				.connect(testConfig)
 				.then(server => {
 					this.podium = server
-					this.podium.serve()
+					this.podium.serve(new Express)
 					done()
 				})
 				.catch(error => done(error))

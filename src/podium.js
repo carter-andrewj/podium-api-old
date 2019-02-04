@@ -37,14 +37,6 @@ export class Podium {
 
 	constructor() {
 
-		// Ensure required environment variables are set
-		if (!process.env.AWS_ACCESS_KEY) {
-			throw (new PodiumError).withCode(900)
-		}
-		if (!process.env.AWS_SECRET_ACCESS_KEY) {
-			throw (new PodiumError).withCode(901)
-		}
-
 		// Set up global variables
 		this.path = new PodiumPaths();
 		this.channels = Map({});
@@ -696,6 +688,19 @@ export class Podium {
 
 
 export class PodiumServer extends Podium {
+
+
+
+	constructor() {
+		// Ensure required environment variables are set
+		if (!process.env.AWS_ACCESS_KEY) {
+			throw (new PodiumError).withCode(900)
+		}
+		if (!process.env.AWS_SECRET_ACCESS_KEY) {
+			throw (new PodiumError).withCode(901)
+		}
+		super()
+	}
 
 
 

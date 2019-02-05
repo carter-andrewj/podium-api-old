@@ -89,7 +89,7 @@ export class PodiumUser extends PodiumRecord {
 
 // POSTS
 
-	posts() {
+	postIndex() {
 		this.debugOut("Fetching posts...")
 		return new Promise((resolve, reject) => {
 			this.podium
@@ -143,7 +143,7 @@ export class PodiumUser extends PodiumRecord {
 	}
 
 
-	followed() {
+	followingIndex() {
 		this.debugOut(`Fetching users I follow...`)
 		return new Promise((resolve, reject) => {
 
@@ -152,15 +152,16 @@ export class PodiumUser extends PodiumRecord {
 				.forUsersFollowedBy(this.address)
 
 			// Load following users
-			this.podium.getHistory(followingAccount)
-				.then(async followed => filterAsync(followed,
+			this.podium
+				.getHistory(followingAccount)
+				.then(async following => filterAsync(following,
 					f => this.isFollowing(f.get("address"))
 				))
-				.then(followed => {
-					const followedList = followed
+				.then(following => {
+					const index = following
 						.map(f => f.get("address"))
 						.toSet()
-					resolve(followedList)
+					resolve(index)
 				})
 				.catch(error => {
 					if (error instanceof PodiumError && error.code === 2) {
@@ -174,7 +175,7 @@ export class PodiumUser extends PodiumRecord {
 	}
 
 
-	followers() {
+	followerIndex() {
 		this.debugOut(`Fetching users I follow`)
 		return new Promise((resolve, reject) => {
 
@@ -262,7 +263,7 @@ export class PodiumClientUser extends PodiumUser {
 		this.cache = new PodiumCache({
 			profile: Map(),
 			followers: Set(),
-			followed: Set(),
+			following: Set(),
 			posts: Set(),
 			promoted: Set(),
 			reports: Set(),
@@ -271,13 +272,45 @@ export class PodiumClientUser extends PodiumUser {
 	}
 
 
+	// GETTERS
+
+	get id() { return this.cache.get("profile", "id") }
+	get name() { return this.cache.get("profile", "name") }
+	get bio() { return this.cache.get("profile", "bio") }
+
+	get created() { return new Date(this.cache.get("profile", "created")) }
+	get latest() { return new Date(this.cache.get("content", "latest")) }
+
+	get picture() { return this.cache.get("profile", "pictureURL") }
+
+	get posts() {
+		return this.cache
+			.get("posts")
+			.map(p => this.podium.post(p))
+			.toList()
+	}
+
+	get following() {
+		return this.cache
+			.get("following")
+			.map(f => this.podium.user(f))
+			.toList()
+	}
+
+	get follower() {
+		return this.cache
+			.get("followers")
+			.map(f => this.podium.user(f))
+			.toList()
+	}
+
 
 	load() {
 		return new Promise((resolve, reject) => {
 			var profilePromise = this.profile(true)
-			var followedPromise = this.followed(true)
-			var followerPromise = this.followers(true)
-			var postsPromise = this.posts(true)
+			var followedPromise = this.followingIndex(true)
+			var followerPromise = this.followerIndex(true)
+			var postsPromise = this.postIndex(true)
 			Promise.all([profilePromise, followedPromise,
 						 followerPromise, postsPromise])
 				.then(() => resolve(this))
@@ -309,13 +342,13 @@ export class PodiumClientUser extends PodiumUser {
 	}
 
 
-	posts(force = false) {
+	postIndex(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.cache.is("posts")) {
 				this.debugOut("Serving cached Posts...")
 				resolve(this.cache.get("posts"))
 			} else {
-				PodiumUser.prototype.posts.call(this)
+				PodiumUser.prototype.postIndex.call(this)
 					.then(posts => {
 						this.cache.swap("posts", posts)
 						resolve(posts)
@@ -333,13 +366,13 @@ export class PodiumClientUser extends PodiumUser {
 	}
 
 
-	followed(force = false) {
+	followingIndex(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.cache.is("followed")) {
 				this.debugOut("Serving cached Posts...")
 				resolve(this.cache.get("followed"))
 			} else {
-				PodiumUser.prototype.followed.call(this)
+				PodiumUser.prototype.followingIndex.call(this)
 					.then(followed => {
 						this.cache.swap("followed", followed)
 						resolve(followed)
@@ -357,13 +390,13 @@ export class PodiumClientUser extends PodiumUser {
 	}
 
 
-	followers(force = false) {
+	followerIndex(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.cache.is("followers")) {
 				this.debugOut("Serving cached Posts...")
 				resolve(this.cache.get("followers"))
 			} else {
-				PodiumUser.prototype.followers.call(this)
+				PodiumUser.prototype.followerIndex.call(this)
 					.then(followers => {
 						this.cache.swap("followers", followers)
 						resolve(followers)
@@ -1012,18 +1045,6 @@ export class PodiumClientActiveUser extends PodiumClientUser {
 	}
 
 
-// GETTERS
-
-	get id() { return this.cache.get("profile", "id") }
-	get name() { return this.cache.get("profile", "name") }
-	get bio() { return this.cache.get("profile", "bio") }
-
-	get created() { return new Date(this.cache.get("profile", "created")) }
-	get latest() { return new Date(this.cache.get("content", "latest")) }
-
-	get picture() { return this.cache.get("profile", "pictureURL") }
-
-
 
 // ALERTS
 
@@ -1217,7 +1238,7 @@ export class PodiumClientActiveUser extends PodiumClientUser {
 					this.identity
 				)
 				.then(() => {
-					this.cache.add("followed", address)
+					this.cache.add("following", address)
 					resolve()
 				})
 				.catch(error => reject(error))
@@ -1234,7 +1255,7 @@ export class PodiumClientActiveUser extends PodiumClientUser {
 					this.identity
 				)
 				.then(() => {
-					this.cache.remove("followed", address)
+					this.cache.remove("following", address)
 					resolve()
 				})
 				.catch(error => reject(error))

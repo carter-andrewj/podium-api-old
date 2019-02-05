@@ -33,7 +33,7 @@ export function shouldUnfollow() {
 export function shouldUnfollowWithoutRoot() {
 
 	it("can correctly see which users now follow them", function() {
-		var unfollowers = this.otherUser.followers(true)
+		var unfollowers = this.otherUser.followerIndex(true)
 		return expect(unfollowers).to.eventually
 			.be.an.instanceOf(Set)
 			.and.have.size(0)
@@ -41,7 +41,7 @@ export function shouldUnfollowWithoutRoot() {
 
 
 	it("can correctly see which users they now follow", function() {
-		var unfollowing = this.user.followed(true)
+		var unfollowing = this.user.followingIndex(true)
 		return expect(unfollowing).to.eventually
 			.be.an.instanceOf(Set)
 			.and.have.size(0)
@@ -54,7 +54,7 @@ export function shouldUnfollowWithoutRoot() {
 export function shouldUnfollowWithRoot() {
 
 	it("can correctly see which users now follow them", function() {
-		var unfollowers = this.otherUser.followers(true)
+		var unfollowers = this.otherUser.followerIndex(true)
 		return expect(unfollowers).to.eventually
 			.be.an.instanceOf(Set)
 			.and.have.size(0)
@@ -62,7 +62,7 @@ export function shouldUnfollowWithRoot() {
 
 
 	it("can correctly see which users they now follow", function() {
-		var unfollowing = this.user.followed(true)
+		var unfollowing = this.user.followingIndex(true)
 		return expect(unfollowing).to.eventually
 			.be.an.instanceOf(Set)
 			.and.have.size(1)
@@ -78,7 +78,7 @@ export function shouldCacheUnfollowData() {
 	it("removes departing followers from the cache", function(done) {
 		this.timeout(10)
 		this.otherUser
-			.followers(false)
+			.followerIndex(false)
 			.then(followers => {
 				expect(followers).to
 					.be.an.instanceOf(Set)
@@ -93,7 +93,7 @@ export function shouldCacheUnfollowData() {
 	it("removes unfollowed users from the cache", function(done) {
 		this.timeout(10)
 		this.user
-			.followed(false)
+			.followingIndex(false)
 			.then(followed => {
 				expect(followed).to
 					.be.an.instanceOf(Set)

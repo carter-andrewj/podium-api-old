@@ -55,7 +55,7 @@ export class PodiumPost extends PodiumRecord {
 
 
 
-	replies() {
+	replyIndex() {
 		return new Promise((resolve, reject) => {
 			this.podium
 				.getHistory(this.podium.path
@@ -70,7 +70,7 @@ export class PodiumPost extends PodiumRecord {
 		})
 	}
 
-	promotions() {
+	promotionIndex() {
 		return new Promise((resolve, reject) => {
 			this.podium
 				.getHistory(this.podium.path.forPromotionsOfPost(this.address))
@@ -82,7 +82,7 @@ export class PodiumPost extends PodiumRecord {
 		})
 	}
 
-	reports() {
+	reportIndex() {
 		return new Promise((resolve, reject) => {
 			this.podium
 				.getHistory(this.podium.path
@@ -133,13 +133,19 @@ export class PodiumClientPost extends PodiumPost {
 
 	get author() { return this.podium.user(this.authorAddress) }
 
+	get replies() {
+		return this.cache
+			.get("replies")
+			.map(r => this.podium.post(r))
+			.toList()
+	}
 
 	load() {
 		return new Promise((resolve, reject) => {
 			var contentPromise = this.content(true)
-			var replyPromise = this.replies(true)
-			var promoPromise = this.promotions(true)
-			var reportPromise = this.reports(true)
+			var replyPromise = this.replyIndex(true)
+			var promoPromise = this.promoIndex(true)
+			var reportPromise = this.reportIndex(true)
 			Promise.all([contentPromise, replyPromise,
 						 promoPromise, reportPromise])
 				.then(() => resolve(this))
@@ -165,15 +171,15 @@ export class PodiumClientPost extends PodiumPost {
 
 
 
-	replies(force = false) {
+	replyIndex(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.cache.is("replies")) {
 				resolve(this.cache.get("replies"))
 			} else {
-				PodiumPost.prototype.replies.call(this)
-					.then(replyIndex => {
-						this.cache.swap("replies", replyIndex)
-						resolve(replyIndex)
+				PodiumPost.prototype.replyIndex.call(this)
+					.then(index => {
+						this.cache.swap("replies", index)
+						resolve(index)
 					})
 					.catch(error => {
 						if (error.code === 2) {
@@ -187,15 +193,15 @@ export class PodiumClientPost extends PodiumPost {
 		})
 	}
 
-	promotions(force = false) {
+	promoIndex(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.cache.is("promotions")) {
 				resolve(this.cache.get("promotions"))
 			} else {
-				PodiumPost.prototype.promotions.call(this)
-					.then(promoIndex => {
-						this.cache.swap("promotions", promoIndex)
-						resolve(promoIndex)
+				PodiumPost.prototype.promotionIndex.call(this)
+					.then(index => {
+						this.cache.swap("promotions", index)
+						resolve(index)
 					})
 					.catch(error => {
 						if (error.code === 2) {
@@ -209,15 +215,15 @@ export class PodiumClientPost extends PodiumPost {
 		})
 	}
 
-	reports(force = false) {
+	reportIndex(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.isCached("reports")) {
 				resolve(this.cached("reports"))
 			} else {
-				PodiumPost.prototype.reports.call(this)
-					.then(reportIndex => {
-						this.cache.swap("reports", reportIndex)
-						resolve(reportIndex)
+				PodiumPost.prototype.reportIndex.call(this)
+					.then(index => {
+						this.cache.swap("reports", index)
+						resolve(index)
 					})
 					.catch(error => {
 						if (error.code === 2) {

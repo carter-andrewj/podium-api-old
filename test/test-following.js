@@ -35,7 +35,7 @@ export function shouldFollow() {
 export function shouldFollowWithoutRoot() {
 
 	it("can see which users they follow", function() {
-		var followers = this.otherUser.followers()
+		var followers = this.otherUser.followerIndex()
 		return expect(followers).to.eventually
 			.be.an.instanceOf(Set)
 			.and.have.size(1)
@@ -44,7 +44,7 @@ export function shouldFollowWithoutRoot() {
 
 
 	it("can see which users follow them", function() {
-		var following = this.user.followed()
+		var following = this.user.followingIndex()
 		return expect(following).to.eventually
 			.be.an.instanceOf(Set)
 			.and.have.size(1)
@@ -72,7 +72,7 @@ export function shouldFollowWithRoot() {
 
 
 	it("can see which users they follow", function() {
-		var followers = this.otherUser.followers()
+		var followers = this.otherUser.followerIndex()
 		return expect(followers).to.eventually
 			.be.an.instanceOf(Set)
 			.and.have.size(1)
@@ -81,7 +81,7 @@ export function shouldFollowWithRoot() {
 
 
 	it("can see which users follow them", function() {
-		var following = this.user.followed()
+		var following = this.user.followingIndex()
 		return expect(following).to.eventually
 			.be.an.instanceOf(Set)
 			.and.have.size(2)
@@ -121,7 +121,7 @@ export function shouldCacheFollowData() {
 	it("caches index of followers", function(done) {
 		this.timeout(10)
 		this.otherUser
-			.followers(false)
+			.followerIndex(false)
 			.then(followers => {
 				expect(followers).to
 					.be.an.instanceOf(Set)
@@ -135,7 +135,7 @@ export function shouldCacheFollowData() {
 	it("caches index of followed users", function(done) {
 		this.timeout(10)
 		this.user
-			.followed(false)
+			.followingIndex(false)
 			.then(followed => {
 				expect(followed).to
 					.be.an.instanceOf(Set)

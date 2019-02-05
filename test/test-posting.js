@@ -89,7 +89,7 @@ export function shouldCreatePosts() {
 
 
 	it("can be indexed by the posting user", function() {
-		var postList = this.user.posts(true)
+		var postList = this.user.postIndex(true)
 		return expect(postList).to.eventually
 			.be.an.instanceOf(Set)
 			.and.have.size(2)
@@ -99,7 +99,7 @@ export function shouldCreatePosts() {
 
 
 	it("can be indexed by other users", function() {
-		var passivePostList = this.passiveUser.posts(true)
+		var passivePostList = this.passiveUser.postIndex(true)
 		return expect(passivePostList).to.eventually
 			.be.an.instanceOf(Set)
 			.and.have.size(2)
@@ -158,8 +158,8 @@ export function shouldCreatePosts() {
 
 
 	it("can index replies", function(done) {
-		var replyPromise = this.post.replies(true)
-		var threadPromise = this.reply.replies(true)
+		var replyPromise = this.post.replyIndex(true)
+		var threadPromise = this.reply.replyIndex(true)
 		Promise.all([replyPromise, threadPromise])
 			.then(([replyIndex, threadIndex]) => {
 				expect(replyIndex).to
@@ -305,7 +305,7 @@ export function shouldCachePostData() {
 
 	it("caches index of posts per user", function(done) {
 		this.timeout(10)
-		this.user.posts(false)
+		this.user.postIndex(false)
 			.then(posts => {
 				expect(posts).to
 					.be.an.instanceOf(Set)
@@ -321,7 +321,7 @@ export function shouldCachePostData() {
 
 	it("caches index of replies per post", function(done) {
 		this.timeout(10)
-		this.post.replies(false)
+		this.post.replyIndex(false)
 			.then(replies => {
 				expect(replies).to
 					.be.an.instanceOf(Set)

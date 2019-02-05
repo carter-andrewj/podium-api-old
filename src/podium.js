@@ -654,7 +654,7 @@ export class Podium {
 
 	activeUser(id, pw) {
 		return new Promise((resolve, reject) => {
-			new PodiumUser()
+			new PodiumUser(this)
 				.signIn(id, pw)
 				.then(activeUser => resolve(activeUser))
 				.catch(error => reject(error))
@@ -999,7 +999,7 @@ export class PodiumServer extends Podium {
 
 	activeUser(id, pw) {
 		return new Promise((resolve, reject) => {
-			new PodiumServerUser()
+			new PodiumServerUser(this)
 				.signIn(id, pw)
 				.then(activeUser => resolve(activeUser))
 				.catch(error => reject(error))
@@ -1449,7 +1449,7 @@ export class PodiumClient extends Podium {
 
 	activeUser(id, pw) {
 		return new Promise((resolve, reject) => {
-			new PodiumClientUser()
+			new PodiumClientUser(this)
 				.signIn(id, pw)
 				.then(activeUser => activeUser.load())
 				.then(activeUser => resolve(activeUser))

@@ -260,7 +260,7 @@ export class PodiumClientUser extends PodiumUser {
 	constructor(podium, address) {
 		super(podium, address)
 		this.cache = new PodiumCache({
-			profile: {},
+			profile: Map(),
 			followers: Set(),
 			followed: Set(),
 			posts: Set(),

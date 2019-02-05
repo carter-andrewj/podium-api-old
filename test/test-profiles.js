@@ -87,6 +87,8 @@ export function shouldCacheProfiles() {
 					.have.property("bio", this.userData.bio)
 				expect(this.profile).to
 					.have.property("bio", this.user.bio)
+				expect(this.profile).to
+					.have.property("pictureURL", this.user.picture)
 				expect(profile).to
 					.equal(this.user.cache.get("profile"))
 				done()

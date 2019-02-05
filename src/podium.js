@@ -1447,12 +1447,15 @@ export class PodiumClient extends Podium {
 		return newUser
 	}
 
+
 	activeUser(id, pw) {
 		return new Promise((resolve, reject) => {
 			new PodiumClientUser(this)
 				.signIn(id, pw)
-				.then(activeUser => activeUser.load())
-				.then(activeUser => resolve(activeUser))
+				.then(activeUser => {
+					activeUser.load()
+					resolve(activeUser)
+				})
 				.catch(error => reject(error))
 		})
 	}

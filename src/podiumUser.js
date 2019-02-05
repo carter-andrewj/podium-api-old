@@ -76,7 +76,7 @@ export class PodiumUser extends PodiumRecord {
 					), Map())
 				.then(profile => {
 					profile = profile.set("pictureURL",
-						`${this.podium.media}/${profile.get("picture")}`)
+						`https://${this.podium.media}/${profile.get("picture")}`)
 					resolve(profile)
 				})
 				.catch(error => reject(error))

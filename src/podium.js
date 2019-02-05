@@ -71,7 +71,7 @@ export class Podium {
 			this.rootAddress = config.RootAddress;
 			
 			// Connect to S3
-			this.media = config.MediaStore || "https://media.podium-network.com/";
+			this.media = config.MediaStore || "media.podium-network.com/";
 			this.S3 = new s3({
 				apiVersion: '2006-03-01',
 				region: 'eu-west-1',

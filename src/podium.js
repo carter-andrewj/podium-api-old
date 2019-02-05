@@ -652,6 +652,16 @@ export class Podium {
 	}
 
 
+	activeUser(id, pw) {
+		return new Promise((resolve, reject) => {
+			new PodiumUser()
+				.signIn(id, pw)
+				.then(activeUser => resolve(activeUser))
+				.catch(error => reject(error))
+		})
+	}
+
+
 	isUser(id) {
 		return new Promise((resolve, reject) => {
 			this.getLatest(this.path.forProfileWithID(id))
@@ -984,6 +994,16 @@ export class PodiumServer extends Podium {
 
 	user(address) {
 		return new PodiumServerUser(this, address)
+	}
+
+
+	activeUser(id, pw) {
+		return new Promise((resolve, reject) => {
+			new PodiumServerUser()
+				.signIn(id, pw)
+				.then(activeUser => resolve(activeUser))
+				.catch(error => reject(error))
+		})
 	}
 
 
@@ -1425,6 +1445,16 @@ export class PodiumClient extends Podium {
 		const newUser = new PodiumClientUser(this, address)
 		newUser.load()
 		return newUser
+	}
+
+	activeUser(id, pw) {
+		return new Promise((resolve, reject) => {
+			new PodiumClientUser()
+				.signIn(id, pw)
+				.then(activeUser => activeUser.load())
+				.then(activeUser => resolve(activeUser))
+				.catch(error => reject(error))
+		})
 	}
 
 

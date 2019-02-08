@@ -740,25 +740,30 @@ export class PodiumServer extends Podium {
 	}
 
 
-	createNetwork(rootUser) {
+	network(rootUserData) {
+		if (this.config.get("ResumeNetwork")) {
+			return this.getNetwork(rootUserData)
+		} else {
+			return this.createNetwork(rootUserData)
+		}
+	}
+
+
+	createNetwork(rootUserData) {
 		return new Promise((resolve, reject) => {
-
-			// Increment network version to ensure
-			// empty Radix atom space
-			this.version = this.version + 1
-			this.app = `${this.appID}|${this.version}`
-
-			this.config = this.config
-				.set("RadixApplicationVersion", this.version)
 
 			// Reset database
 			this.resetDB()
+
+				// Create root user
 				.then(() => this.createUser(
-					rootUser.ID,
-					rootUser.Password,
-					rootUser.Name,
-					rootUser.Bio
+					rootUserData.ID,
+					rootUserData.Password,
+					rootUserData.Name,
+					rootUserData.Bio
 				))
+
+				// Store root user and resolve
 				.then(rootUser => {
 					this.rootAddress = rootUser.address
 					this.rootUser = rootUser
@@ -766,6 +771,30 @@ export class PodiumServer extends Podium {
 						.set("RootAddress", this.rootAddress)
 					resolve(this)
 				})
+
+				// Handle errors
+				.catch(error => reject(error))
+
+		})
+	}
+
+
+	getNetwork(rootUserData) {
+		return new Promise((resolve, reject) => {
+
+			// Recreate root user
+			this.activeUser(rootUserData.ID, rootUserData.Password)
+
+				// Store root user and resolve
+				.then(rootUser => {
+					this.rootUser = rootUser
+					this.rootAddress = rootUser.address
+					this.config = this.config
+						.set("RootAddress", this.rootAddress)
+					resolve(this)
+				})
+
+				// Handle errors
 				.catch(error => reject(error))
 
 		})

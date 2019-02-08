@@ -769,6 +769,7 @@ export class PodiumServer extends Podium {
 					this.rootUser = rootUser
 					this.config = this.config
 						.set("RootAddress", this.rootAddress)
+						.set("ResumeNetwork", true)
 					resolve(this)
 				})
 

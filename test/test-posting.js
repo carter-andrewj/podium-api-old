@@ -227,7 +227,7 @@ export function shouldCreatePostAlerts() {
 
 	it("sends alerts on replies", function(done) {
 		this.user
-			.alerts(100, true)
+			.alerts(false, 100, true)
 			.then(alerts => {
 				expect(alerts).to
 					.be.instanceOf(List)
@@ -247,7 +247,7 @@ export function shouldCreatePostAlerts() {
 
 	it("sends alerts on mentions", function(done) {
 		this.otherUser
-			.alerts(100, true)
+			.alerts(false, 100, true)
 			.then(alerts => {
 				expect(alerts).to
 					.be.instanceOf(List)

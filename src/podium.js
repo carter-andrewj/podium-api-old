@@ -1151,7 +1151,10 @@ export class PodiumServer extends Podium {
 
 				// Get alerts
 				this.withIdentity(data.keyPair)
-					.then(user => user.alerts(data.limit))
+					.then(user => user.alerts(
+						data.seen === "true",
+						data.limit
+					))
 					.then(alerts => {
 						response
 						.status(200)
@@ -1379,11 +1382,7 @@ export class PodiumClient extends Podium {
 		this.debugOut(`Posting to ${this.serverURL}${route}:`, data)
 		return new Promise(async (resolve, reject) => {
 
-			// Build request body
-			var body = new FormData();
-			Object.keys(data).forEach(k => {
-				if (data[k]) { body.append(k, data[k]) }
-			})
+			var body = new FormData()
 
 			// Add credentials to body, if required
 			if (identity) {
@@ -1399,6 +1398,11 @@ export class PodiumClient extends Podium {
 				// )
 				body.append("keyPair", JSON.stringify(encryptedKeyPair))
 			}
+
+			// Build request body
+			Object.keys(data).forEach(k => {
+				if (data[k]) { body.append(k, String(data[k])) }
+			})
 
 			// Post data
 			fetch(`${this.serverURL}${route}`, {

@@ -96,7 +96,7 @@ export function shouldCreateFollowAlerts() {
 
 	it("sends new followed alert", function(done) {
 		this.otherUser
-			.alerts(100, true)
+			.alerts(false, 100, true)
 			.then(alerts => {
 				expect(alerts).to
 					.be.instanceOf(List)

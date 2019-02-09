@@ -923,12 +923,23 @@ export class PodiumServerActiveUser extends PodiumActiveUser {
 
 // ALERTS
 
-	alerts(limit=25) {
+	alerts(seen=false, limit=25) {
 		return new Promise((resolve, reject) => {
+			let finder;
+			if (seen) {
+				finder = {
+					to: this.address
+				}
+			} else {
+				finder = {
+					to: this.address,
+					seen: false
+				}
+			}
 			const alerts = this.podium.db
 				.getCollection("alerts")
 				.chain()
-				.find({ to: this.address })
+				.find(finder)
 				.simplesort("created", { desc: true })
 				.limit(limit)
 				.data()
@@ -1048,7 +1059,7 @@ export class PodiumClientActiveUser extends PodiumClientUser {
 
 // ALERTS
 
-	alerts(limit=25, force=false) {
+	alerts(seen=false, limit=25, force=false) {
 		return new Promise(async (resolve, reject) => {
 			if (!force && this.cache.is("alerts")) {
 				resolve(this.cache.get("alerts"))
@@ -1056,7 +1067,7 @@ export class PodiumClientActiveUser extends PodiumClientUser {
 				this.podium
 					.dispatch(
 						"/alerts",
-						{ limit: limit },
+						{ limit: limit, seen: seen },
 						this.identity
 					)
 					.then(response => {

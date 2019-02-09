@@ -7,7 +7,7 @@ import { List } from 'immutable';
 export function shouldFlagSeenAlerts() {
 
 	it("flags alerts, once seen", function(done) {
-		this.otherUser.alerts(100, true)
+		this.otherUser.alerts(true, 100, true)
 			.then(alerts => {
 				const alertIDs = alerts
 					.map(a => a.get("$loki"))
@@ -22,7 +22,7 @@ export function shouldFlagSeenAlerts() {
 					.have.property("seen", false)
 				return this.otherUser.clearAlerts(alertIDs)
 			})
-			.then(() => this.otherUser.alerts(100, true))
+			.then(() => this.otherUser.alerts(true, 100, true))
 			.then(alerts => {
 				expect(alerts).to
 					.be.instanceOf(List)
@@ -38,7 +38,19 @@ export function shouldFlagSeenAlerts() {
 			.catch(error => done(error))
 	})
 
+	it("returns only unseen alerts by default", function(done) {
+		this.otherUser.alerts(false, 100, true)
+			.then(alerts => {
+				expect(alerts).to
+					.be.instanceOf(List)
+					.and.have.size(0)
+				done()
+			})
+			.catch(error => done(error))
+	})
+
 }
+
 
 
 

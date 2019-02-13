@@ -65,8 +65,6 @@ export function shouldCreatePosts() {
 			.be.an.instanceOf(PodiumPost)
 		expect(this.post).to
 			.have.property("address")
-		expect(this.post).to
-			.have.property("authorAddress", this.user.address)
 	})
 
 
@@ -112,8 +110,6 @@ export function shouldCreatePosts() {
 			.be.an.instanceOf(PodiumPost)
 		expect(this.reply).to
 			.have.property("address")
-		expect(this.reply).to
-			.have.property("authorAddress", this.otherUser.address)
 	})
 
 
@@ -139,8 +135,6 @@ export function shouldCreatePosts() {
 			.be.an.instanceOf(PodiumPost)
 		expect(this.thread).to
 			.have.property("address")
-		expect(this.thread).to
-			.have.property("authorAddress", this.user.address)
 	})
 
 	it("can receive replies to replies with correct content", function() {
@@ -280,6 +274,10 @@ export function shouldCachePostData() {
 					.have.property("text", this.threadData.text)
 				expect(content).to
 					.have.property("text", this.thread.text)
+				expect(content).to
+					.have.property("author", this.user.address)
+				expect(content).to
+					.have.property("author", this.thread.authorAddress)
 				expect(content).to
 					.have.property("parent", this.reply.address)
 				expect(content).to

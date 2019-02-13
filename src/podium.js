@@ -683,8 +683,8 @@ export class Podium {
 
 // POSTS
 
-	post(address, authorAddress) {
-		const newPost = new PodiumPost(this, address, authorAddress)
+	post(address) {
+		const newPost = new PodiumPost(this, address)
 		return newPost
 	}
 
@@ -1503,8 +1503,8 @@ export class PodiumClient extends Podium {
 	}
 
 
-	post(address, authorAddress) {
-		const newPost = new PodiumClientPost(this, address, authorAddress)
+	post(address) {
+		const newPost = new PodiumClientPost(this, address)
 		newPost.load()
 		return newPost
 	}

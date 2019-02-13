@@ -140,12 +140,12 @@ export class PodiumClientPost extends PodiumPost {
 			.toList()
 	}
 
-	load() {
+	load(force = false) {
 		return new Promise((resolve, reject) => {
-			var contentPromise = this.content(true)
-			var replyPromise = this.replyIndex(true)
-			var promoPromise = this.promoIndex(true)
-			var reportPromise = this.reportIndex(true)
+			var contentPromise = this.content(force)
+			var replyPromise = this.replyIndex(force)
+			var promoPromise = this.promoIndex(force)
+			var reportPromise = this.reportIndex(force)
 			Promise.all([contentPromise, replyPromise,
 						 promoPromise, reportPromise])
 				.then(() => resolve(this))
@@ -169,6 +169,14 @@ export class PodiumClientPost extends PodiumPost {
 		})
 	}
 
+
+	withContent() {
+		return new Promise((resolve, reject) => {
+			this.content(false)
+				.then(() => resolve(this))
+				.catch(reject)
+		})
+	}
 
 
 	replyIndex(force = false) {

@@ -436,9 +436,7 @@ export class Podium {
 		// Set up timeout, if required
 		let timer;
 		if (lifetime > 0) {
-			timer = this.newTimer(address, lifetime, (a) => {
-				this.closeChannel(a);
-			});
+			timer = this.newTimer(address, lifetime, this.closeChannel)
 		}
 
 		// Subscribe to data stream
@@ -450,7 +448,7 @@ export class Podium {
 
 				// Run callback
 				const result = Map(fromJS(JSON.parse(item.data.payload)));
-				callback(result);
+				callback(result)
 
 			},
 			error: error => {

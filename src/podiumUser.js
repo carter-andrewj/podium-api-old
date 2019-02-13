@@ -305,12 +305,12 @@ export class PodiumClientUser extends PodiumUser {
 	}
 
 
-	load() {
+	load(force = false) {
 		return new Promise((resolve, reject) => {
-			var profilePromise = this.profile(true)
-			var followedPromise = this.followingIndex(true)
-			var followerPromise = this.followerIndex(true)
-			var postsPromise = this.postIndex(true)
+			var profilePromise = this.profile(force)
+			var followedPromise = this.followingIndex(force)
+			var followerPromise = this.followerIndex(force)
+			var postsPromise = this.postIndex(force)
 			Promise.all([profilePromise, followedPromise,
 						 followerPromise, postsPromise])
 				.then(() => resolve(this))
@@ -338,6 +338,15 @@ export class PodiumClientUser extends PodiumUser {
 					})
 					.catch(error => reject(error))
 			}
+		})
+	}
+
+
+	withProfile() {
+		return new Promise((resolve, reject) => {
+			this.profile(false)
+				.then(() => resolve(this))
+				.catch(reject)
 		})
 	}
 

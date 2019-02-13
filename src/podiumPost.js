@@ -225,8 +225,8 @@ export class PodiumClientPost extends PodiumPost {
 
 	reportIndex(force = false) {
 		return new Promise((resolve, reject) => {
-			if (!force && this.isCached("reports")) {
-				resolve(this.cached("reports"))
+			if (!force && this.cache.is("reports")) {
+				resolve(this.cache.get("reports"))
 			} else {
 				PodiumPost.prototype.reportIndex.call(this)
 					.then(index => {

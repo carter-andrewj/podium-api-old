@@ -106,8 +106,8 @@ export class PodiumUser extends PodiumRecord {
 	onPost(callback) {
 		this.podium.openChannel(
 			this.podium.path.forPostsBy(this.address),
-			callback
-		);
+			record => callback(record.get("address"))
+		)
 	}
 
 
@@ -224,14 +224,14 @@ export class PodiumUser extends PodiumRecord {
 	onFollow(callback) {
 		this.podium.openChannel(
 			this.podium.path.forUsersFollowedBy(this.address),
-			callback
+			record => callback(record.get("address"))
 		);
 	}
 
 	onFollowed(callback) {
 		this.podium.openChannel(
 			this.podium.path.forUsersFollowing(this.address),
-			callback
+			record => callback(record.get("address"))
 		);
 	}
 
@@ -978,7 +978,7 @@ export class PodiumServerActiveUser extends PodiumActiveUser {
 
 
 
-// ALERT WRAPPERS FOR CREATION METHODS
+// ALERT-SENDING WRAPPERS FOR CREATION METHODS
 
 	createPost(
 			text,

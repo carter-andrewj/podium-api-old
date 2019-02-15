@@ -38,10 +38,10 @@ export class Podium {
 	constructor() {
 
 		// Set up global variables
-		this.path = new PodiumPaths();
-		this.channels = Map({});
-		this.timers = Map({});
-		this.debug = false;
+		this.path = new PodiumPaths()
+		this.channels = Map({})
+		this.timers = Map({})
+		this.debug = false
 
 	}
 
@@ -151,19 +151,19 @@ export class Podium {
 		const timer = setTimeout(() => {
 
 			// Run callback
-			callback();
+			callback()
 
 			// Delete record of this timer
-			this.timers.delete(id);
+			this.timers = this.timers.delete(id);
 
 		}, duration);
 
 		// Store timer
-		this.timers.id = {
+		this.timers = this.timers.set("id", fromJS({
 			timer: timer,
 			callback: callback,
 			duration: duration
-		}
+		}))
 
 	}
 
@@ -172,11 +172,14 @@ export class Podium {
 			id 		// Identifier of timer to be restarted
 		) {
 
+		// Retrieve timer
+		const timer = this.timers.get("id")
+
 		// Stop timer
-		clearTimeout(this.timers.id.timer);
+		clearTimeout(timer.get("timer"))
 
 		// Recreate timer
-		this.newTimer(id, this.timers.callback, this.timers.duration);
+		this.newTimer(id, timer.get("duration"), timer.get("callback"))
 
 	}
 
@@ -185,17 +188,17 @@ export class Podium {
 		) {
 
 		// Stop timer
-		clearTimeout(this.timers.id.timer);
+		clearTimeout(this.timers.getIn(["id", "timer"]))
 
 		// Delete record of this timer
-		this.timers.delete("id");
+		this.timers = this.timers.delete("id")
 
 	}
 
 	cleanUpTimers() {
 
 		// Stops all timers
-		this.timers.map((t) => this.stopTimer(t));
+		this.timers.map((_, k) => this.stopTimer(k))
 
 	}
 
@@ -344,7 +347,7 @@ export class Podium {
 					// Unpack record
 					var record = Map(fromJS(JSON.parse(item.data.payload)))
 						.set("received", (new Date()).getTime())
-						.set("created", item.data.timestamp);
+						.set("created", item.data.timestamp)
 
 					// Add record to history
 					history = history.push(record);
@@ -422,13 +425,13 @@ export class Podium {
 		//		 and reopen automatically on resume.
 
 		// Check channel to this account is not already open
-		const address = account.getAddress();
-		if (address in this.channels) {
-			return this.channels.get(address);
+		const address = account.getAddress()
+		if (this.channels.has(address)) {
+			return this.channels.getIn(address)
 		}
 
 		// Connect to the account
-		account.openNodeConnection();
+		account.openNodeConnection()
 
 		// Initialize data request
 		const stream = account.dataSystem.applicationDataSubject;
@@ -436,7 +439,8 @@ export class Podium {
 		// Set up timeout, if required
 		let timer;
 		if (lifetime > 0) {
-			timer = this.newTimer(address, lifetime, this.closeChannel)
+			timer = this.newTimer(address, lifetime,
+				() => this.closeChannel(address))
 		}
 
 		// Subscribe to data stream
@@ -444,10 +448,14 @@ export class Podium {
 			next: async item => {
 
 				// Reset timeout
-				if (lifetime > 0) { this.resetTimer(address); }
+				if (lifetime > 0) { this.resetTimer(address) }
+
+				// Unpack data
+				const result = Map(fromJS(JSON.parse(item.data.payload)))
+					.set("received", (new Date()).getTime())
+					.set("created", item.data.timestamp)
 
 				// Run callback
-				const result = Map(fromJS(JSON.parse(item.data.payload)));
 				callback(result)
 
 			},
@@ -455,23 +463,20 @@ export class Podium {
 
 				// Run callback
 				if (typeof(onError) === "function") {
-					onError(error);
+					onError(error)
 				} else {
-					this.closeChannel(address);
-					throw error;
+					this.closeChannel(address)
+					throw error
 				}
 
 			}
-		});
+		})
 
 		// Log open channel
-		this.channels.set("address", Map({
-			timer: timer,
-			channel: channel
-		}))
+		this.channels = this.channels.set("address", channel)
 
 		// Return the channel
-		return channel;
+		return channel
 
 	}
 
@@ -483,10 +488,10 @@ export class Podium {
 		// openChannel
 
 		// Stop channel timeout
-		if (address in this.channels) {
-			this.stopTimer(this.channels.get(address).timer);
-			this.channels.get(address).channel.unsubscribe();
-			this.channels.delete(address);
+		if (this.channels.has(address)) {
+			this.stopTimer(address)
+			this.channels.get(address).unsubscribe()
+			this.channels = this.channels.delete(address)
 		}
 
 		//TODO - Close radix node connection
@@ -496,7 +501,7 @@ export class Podium {
 	cleanUpChannels() {
 
 		// Closes all open Channels
-		this.channels.map((c) => this.closeChannel(c));
+		this.channels.map((_, c) => this.closeChannel(c))
 
 	}
 

@@ -11,6 +11,10 @@ export function preparePosts(env, done) {
 
 	env.timeout(30 * 1000)
 
+	// Listen for posting users
+	env.postCount = 0
+	env.user.onPost(() => env.postCount += 1)
+
 	// Create post
 	env.user
 		.createPost(env.postData.text)
@@ -194,6 +198,11 @@ export function shouldCreatePosts() {
 
 
 	it("can include links")
+
+
+	it("can listen to user's posts", function() {
+		expect(this.postCount).to.equal(2)
+	})
 
 
 

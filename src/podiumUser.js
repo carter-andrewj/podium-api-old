@@ -75,8 +75,10 @@ export class PodiumUser extends PodiumRecord {
 						a.mergeDeep(b.delete("record").delete("type"))
 					), Map())
 				.then(profile => {
-					profile = profile.set("pictureURL",
-						`https://${this.podium.media}/${profile.get("picture")}`)
+					if (profile.get("picture")) {
+						profile = profile.set("pictureURL",
+							`https://${this.podium.media}/${profile.get("picture")}`)
+					}
 					resolve(profile)
 				})
 				.catch(error => reject(error))

@@ -1475,7 +1475,6 @@ export class PodiumClient extends Podium {
 
 	user(address) {
 		const newUser = new PodiumClientUser(this, address)
-		newUser.load()
 		return newUser
 	}
 
@@ -1484,11 +1483,8 @@ export class PodiumClient extends Podium {
 		return new Promise((resolve, reject) => {
 			new PodiumClientUser(this)
 				.signIn(id, pw)
-				.then(activeUser => {
-					activeUser.load()
-					resolve(activeUser)
-				})
-				.catch(error => reject(error))
+				.then(resolve)
+				.catch(reject)
 		})
 	}
 
@@ -1505,7 +1501,6 @@ export class PodiumClient extends Podium {
 
 	post(address) {
 		const newPost = new PodiumClientPost(this, address)
-		newPost.load()
 		return newPost
 	}
 

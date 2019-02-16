@@ -108,7 +108,9 @@ export class PodiumUser extends PodiumRecord {
 	onPost(callback) {
 		this.podium.openChannel(
 			this.podium.path.forPostsBy(this.address),
-			record => callback(record.get("address"))
+			record => Promise
+				.resolve(callback(record.get("address")))
+				.catch(console.error)
 		)
 	}
 
@@ -226,15 +228,19 @@ export class PodiumUser extends PodiumRecord {
 	onFollow(callback) {
 		this.podium.openChannel(
 			this.podium.path.forUsersFollowedBy(this.address),
-			record => callback(record.get("address"))
-		);
+			record => Promise
+				.resolve(callback(record.get("address")))
+				.catch(console.error)
+		)
 	}
 
 	onFollowed(callback) {
 		this.podium.openChannel(
 			this.podium.path.forUsersFollowing(this.address),
-			record => callback(record.get("address"))
-		);
+			record => Promise
+				.resolve(callback(record.get("address")))
+				.catch(console.error)
+		)
 	}
 
 

@@ -86,6 +86,11 @@ export class PodiumCache {
 			.setIn([key, "full"], undefined)
 	}
 
+
+	merge(otherCache) {
+		this.cache = this.cache.mergeDeep(otherCache)
+	}
+
 }
 
 

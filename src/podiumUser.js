@@ -698,29 +698,7 @@ export class PodiumActiveUser extends PodiumUser {
 					[indexAccount], indexRecord
 				)
 
-				// Handle mention-specific records
-				let mentionWrite;
-				if (mentions.size > 0) {
-
-					// Build alert payload
-					const mentionAccounts = mentions
-						//.filter(ref => ref.get("address") !== userAddress)
-						.map(address => this.podium.path.forAlertsTo(address))
-						.toJS()
-					const mentionRecord = {
-						record: "alert",
-						type: "mention",
-						post: postAddress,
-						user: this.address
-					}
-
-					mentionWrite = this.podium.storeRecord(
-						this.identity, mentionAccounts, mentionRecord
-					)
-
-				}
-
-				//TODO - Topics (and other references, etc...)
+				//TODO - Mentions, Topics (and other references, etc...)
 
 				// Handle reply records
 				let replyWrite;
@@ -738,7 +716,7 @@ export class PodiumActiveUser extends PodiumUser {
 				} 
 
 				// Wait for all writes to complete
-				Promise.all([postWrite, mentionWrite, replyWrite])
+				Promise.all([postWrite, replyWrite])
 					.then(() => {
 						var post = this.podium
 							.post(postAddress, this.address)
@@ -777,21 +755,11 @@ export class PodiumActiveUser extends PodiumUser {
 				by: this.address
 			}
 
-			// Build alert payload
-			const alertAccount = this.podium.path.forAlertsTo(authorAddress)
-			const alertRecord = {
-				record: "alert",
-				type: "promotion",
-				post: postAddress,
-				user: this.userAddress
-			}
-
 			// Store records in ledger
 			this.podium.storeRecords(
 					this.identity,
 					[postAccount], postRecord,
 					[promoteAccount], promoteRecord,
-					[alertAccount], alertRecord
 				)
 				.then(result => resolve(fromJS(postRecord)))
 				.catch(error => reject(error))
@@ -858,22 +826,12 @@ export class PodiumActiveUser extends PodiumUser {
 							address: address
 						}
 
-						// Build alert payload
-						const alertAccount = this.podium.path
-							.forAlertsTo(address)
-						const alertRecord = {
-							record: "alert",
-							type: "follow",
-							user: this.address
-						}
-
 						// Store following record
 						this.podium.storeRecords(
 								this.identity,
 								[followAccount], followRecord,
 								[relationAccount], relationRecord,
-								[followingAccount], followingRecord,
-								[alertAccount], alertRecord
+								[followingAccount], followingRecord
 							)
 							.then(() => resolve())
 							.catch(error => reject(error))

@@ -87,9 +87,18 @@ export class PodiumCache {
 	}
 
 
-	merge(otherCache) {
-		this.cache = this.cache.mergeDeep(otherCache)
+	merge(key, other) {
+		if (this.age[key] < other.age[key]) {
+			this.cache[key] = other.cache[key]
+		}
 	}
+
+	mergeAll(other) {
+		this.emptyCache.keySeq()
+			.forEach(k => this.merge(k, other))
+	}
+
+
 
 }
 

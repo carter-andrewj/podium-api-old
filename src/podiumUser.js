@@ -67,7 +67,7 @@ export class PodiumUser extends PodiumRecord {
 // USER PROFILES
 
 	profile() {
-		this.debugOut("Fetching Profile...")
+		this.debugOut(`Fetching the profile of User-${this.address}`)
 		return new Promise((resolve, reject) => {
 			this.podium
 				.getHistory(this.podium.path.forProfileOf(this.address))
@@ -92,7 +92,7 @@ export class PodiumUser extends PodiumRecord {
 // POSTS
 
 	postIndex() {
-		this.debugOut("Fetching posts...")
+		this.debugOut(`Fetching the posts of User-${this.address}`)
 		return new Promise((resolve, reject) => {
 			this.podium
 				.getHistory(this.podium.path.forPostsBy(this.address))
@@ -106,6 +106,7 @@ export class PodiumUser extends PodiumRecord {
 
 
 	onPost(callback) {
+		this.debugOut(`Added a callback for each post by User-${this.address}`)
 		this.podium.openChannel(
 			this.podium.path.forPostsBy(this.address),
 			record => Promise
@@ -122,7 +123,7 @@ export class PodiumUser extends PodiumRecord {
 
 
 	isFollowing(address) {
-		this.debugOut(`Testing if following ${address}`)
+		this.debugOut(`Checking if User-${this.address} is following User-${address}`)
 		return new Promise((resolve, reject) => {
 			const relationAccount = this.podium.path
 				.forRelationOf(this.address, address)
@@ -135,7 +136,7 @@ export class PodiumUser extends PodiumRecord {
 
 
 	isFollowedBy(address) {
-		this.debugOut(`Testing if followed by ${address}`)
+		this.debugOut(`Checking if User-${this.address} is followed by User-${address}`)
 		return new Promise((resolve, reject) => {
 			const relationAccount = this.podium.path
 				.forRelationOf(this.address, address)
@@ -148,7 +149,7 @@ export class PodiumUser extends PodiumRecord {
 
 
 	followingIndex() {
-		this.debugOut(`Fetching users I follow...`)
+		this.debugOut(`Fetching index of users followed by User-${this.address}`)
 		return new Promise((resolve, reject) => {
 
 			// Get location for records of followed users
@@ -180,7 +181,7 @@ export class PodiumUser extends PodiumRecord {
 
 
 	followerIndex() {
-		this.debugOut(`Fetching users I follow`)
+		this.debugOut(`Fetching index of users who follow User-${this.address}`)
 		return new Promise((resolve, reject) => {
 
 			// Get location for records of followed users
@@ -226,6 +227,7 @@ export class PodiumUser extends PodiumRecord {
 
 
 	onFollow(callback) {
+		this.debugOut(`Added a callback for each user following User-${this.address}`)
 		this.podium.openChannel(
 			this.podium.path.forUsersFollowedBy(this.address),
 			record => Promise
@@ -235,6 +237,7 @@ export class PodiumUser extends PodiumRecord {
 	}
 
 	onFollowed(callback) {
+		this.debugOut(`Added a callback for each user followed by User-${this.address}`)
 		this.podium.openChannel(
 			this.podium.path.forUsersFollowing(this.address),
 			record => Promise
@@ -314,6 +317,7 @@ export class PodiumClientUser extends PodiumUser {
 
 
 	load(force = false) {
+		this.debugOut(`Loading all data for User-${this.address}`)
 		return new Promise((resolve, reject) => {
 			var profilePromise = this.profile(force)
 			var followedPromise = this.followingIndex(force)
@@ -336,7 +340,7 @@ export class PodiumClientUser extends PodiumUser {
 	profile(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.cache.is("profile")) {
-				this.debugOut("Serving cached Profile...")
+				this.debugOut(`Serving cached profile for User-${this.address}`)
 				resolve(this.cache.get("profile"))
 			} else {
 				PodiumUser.prototype.profile.call(this)
@@ -351,6 +355,7 @@ export class PodiumClientUser extends PodiumUser {
 
 
 	withProfile() {
+		this.debugOut(`Ensuring profile of User-${this.address} is loaded before proceeding`)
 		return new Promise((resolve, reject) => {
 			this.profile(false)
 				.then(() => resolve(this))
@@ -362,7 +367,7 @@ export class PodiumClientUser extends PodiumUser {
 	postIndex(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.cache.is("posts")) {
-				this.debugOut("Serving cached Posts...")
+				this.debugOut(`Serving cached post index of user ${this.address}`)
 				resolve(this.cache.get("posts"))
 			} else {
 				PodiumUser.prototype.postIndex.call(this)
@@ -386,7 +391,7 @@ export class PodiumClientUser extends PodiumUser {
 	followingIndex(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.cache.is("followed")) {
-				this.debugOut("Serving cached Posts...")
+				this.debugOut(`Serving cached index of users followed of User-${this.address}`)
 				resolve(this.cache.get("followed"))
 			} else {
 				PodiumUser.prototype.followingIndex.call(this)
@@ -410,7 +415,7 @@ export class PodiumClientUser extends PodiumUser {
 	followerIndex(force = false) {
 		return new Promise((resolve, reject) => {
 			if (!force && this.cache.is("followers")) {
-				this.debugOut("Serving cached Posts...")
+				this.debugOut(`Serving cached index of users following User-${this.address}`)
 				resolve(this.cache.get("followers"))
 			} else {
 				PodiumUser.prototype.followerIndex.call(this)
@@ -466,7 +471,7 @@ export class PodiumActiveUser extends PodiumUser {
 // USER PROFILES
 
 	updateProfileName(name) {
-		this.debugOut(`Updating profile name: ${name}`)
+		this.debugOut(`User-${this.address} is updating their display name to "${name}"`)
 		return new Promise(async (resolve, reject) => {
 			
 			// Generate user public record
@@ -487,7 +492,7 @@ export class PodiumActiveUser extends PodiumUser {
 	}
 
 	updateProfileBio(bio) {
-		this.debugOut(`Updating profile bio: ${bio}`)
+		this.debugOut(`User-${this.address} is updating their bio to "${bio}"`)
 		return new Promise(async (resolve, reject) => {
 			
 			// Generate user public record
@@ -508,7 +513,7 @@ export class PodiumActiveUser extends PodiumUser {
 	}
 
 	updateProfilePicture(image, ext) {
-		this.debugOut(`Updating profile picture`)
+		this.debugOut(`User-${this.address} is updating their profile picture`)
 		return new Promise(async (resolve, reject) => {
 			
 			// Store media
@@ -569,7 +574,7 @@ export class PodiumActiveUser extends PodiumUser {
 			// Register media on ledger
 			//TODO - Check if media already exists and skip
 			//		 this step, if required
-			this.debugOut(`Registering Media: ${mediaAddress}`)
+			this.debugOut(`User-${this.address} is registering Media-${mediaAddress}`)
 			this.podium
 				.storeRecord(this.identity, [mediaAccount], mediaPayload)
 				.then(() => this.podium.storeMedia(media, mediaURL))
@@ -591,7 +596,7 @@ export class PodiumActiveUser extends PodiumUser {
 			name,			// Display name of topic
 			description		// Description of topic
 		) {
-		this.debugOut(`Creating Topic: ${id}`)
+		this.debugOut(`User-${this.address} is creating a new Topic with ID "${id}"`)
 		return new Promise((resolve, reject) => {
 
 			// Resolve topic address
@@ -632,7 +637,7 @@ export class PodiumActiveUser extends PodiumUser {
 			references = Map(),		// References contained in new post
 			parentAddress = null,	// Address of post being replied to (if any)
 		) {
-		this.debugOut(`Creating Post: ${text}`)
+		this.debugOut(`User-${this.address} is posting: "${text}"`)
 		return new Promise(async (resolve, reject) => {
 
 			// Load parent post
@@ -735,7 +740,7 @@ export class PodiumActiveUser extends PodiumUser {
 			postAddress,	// Address of the promoted post
 			authorAddress	// Address of the post's author
 		) {
-		this.debugOut(`Promoting Post ${postAddress}`)
+		this.debugOut(`User-${this.address} is promoting Post-${postAddress}`)
 		return new Promise((resolve, reject) => {
 
 			// Get account for the promoting user's posts
@@ -791,7 +796,7 @@ export class PodiumActiveUser extends PodiumUser {
 
 
 	follow(address) {
-		this.debugOut(`Following ${address}`)
+		this.debugOut(`User-${this.address} is following User-${address}`)
 		return new Promise((resolve, reject) => {
 
 			// Check user is not currently following the user to be followed
@@ -848,7 +853,7 @@ export class PodiumActiveUser extends PodiumUser {
 
 
 	unfollow(address) {
-		this.debugOut(`Unfollowing ${address}`)
+		this.debugOut(`User-${this.address} is unfollowing User-${address}`)
 		return new Promise((resolve, reject) => {
 
 			// Check user is currently following the user to be unfollowed
@@ -899,6 +904,7 @@ export class PodiumServerActiveUser extends PodiumActiveUser {
 // ALERTS
 
 	alerts(seen=false, limit=25) {
+		this.debugOut(`Fetching alerts for User-${this.address}`)
 		return new Promise((resolve, reject) => {
 			let finder;
 			if (seen) {
@@ -924,20 +930,26 @@ export class PodiumServerActiveUser extends PodiumActiveUser {
 
 
 	createAlert(type, userAddress, subjectAddress) {
+		this.debugOut(`Creating a "${type}"" Alert for User-${userAddress} ` +
+					  `from User-${this.address}` +
+					  `${subjectAddress ? ` about Post-${subjectAddress}` : ""}`)
+		const created = (new Date()).getTime()
 		this.podium.db
 			.getCollection("alerts")
 			.insert({
-				created: (new Date()).getTime(),
+				created: created,
 				to: userAddress,
 				from: this.address,
 				type: type,
 				about: subjectAddress,
-				seen: false
+				seen: false,
+				key: `${this.address}${userAddress}${type}${created}`
 			})
 	}
 
 
 	clearAlerts(ids) {
+		this.debugOut(`Clearing Alerts [${ids.toJS()}] for User-${this.address}`)
 		this.podium.db
 			.getCollection("alerts")
 			.chain()
@@ -1035,6 +1047,7 @@ export class PodiumClientActiveUser extends PodiumClientUser {
 // ALERTS
 
 	alerts(seen=false, limit=25, force=false) {
+		this.debugOut(`Fetching alerts for User-${this.address}`)
 		return new Promise(async (resolve, reject) => {
 			if (!force && this.cache.is("alerts")) {
 				resolve(this.cache.get("alerts"))
@@ -1057,6 +1070,7 @@ export class PodiumClientActiveUser extends PodiumClientUser {
 
 
 	clearAlerts(ids) {
+		this.debugOut(`Clearing alerts [${ids.toJS()}] for User-${this.address}`)
 		return new Promise(async (resolve, reject) => {
 			this.podium
 				.dispatch(
@@ -1157,7 +1171,7 @@ export class PodiumClientActiveUser extends PodiumClientUser {
 			references = Map(),
 			parentAddress = null
 		) {
-		this.debugOut(`Creating Post: ${text}`)
+		this.debugOut(`User ${this.address} is posting: "${text}"`)
 		return new Promise(async (resolve, reject) => {
 			this.podium
 				.dispatch(
@@ -1215,7 +1229,7 @@ export class PodiumClientActiveUser extends PodiumClientUser {
 // FOLLOWING
 
 	follow(address) {
-		this.debugOut(`Following ${address}`)
+		this.debugOut(`User-${this.address} is following User-${address}`)
 		return new Promise((resolve, reject) => {
 			this.podium
 				.dispatch(
@@ -1232,7 +1246,7 @@ export class PodiumClientActiveUser extends PodiumClientUser {
 	}
 
 	unfollow(address) {
-		this.debugOut(`Unfollowing ${address}`)
+		this.debugOut(`User-${this.address} is unfollowing User-${address}`)
 		return new Promise((resolve, reject) => {
 			this.podium
 				.dispatch(

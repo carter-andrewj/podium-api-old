@@ -164,6 +164,7 @@ const testThreadC = {
 const testImage = "./test/testdata/testImage.jpg"
 const testImageName = `testImage${Math.floor(Math.random() * 10000)}.jpg`
 
+const testDebug = false
 
 let podium;
 
@@ -181,6 +182,7 @@ describe('Podium', function() {
 			.then(api => {
 				podium = api
 				this.podium = api
+				this.podium.setDebug(testDebug)
 				done()
 			})
 			.catch(error => done(error))
@@ -351,6 +353,7 @@ describe('Podium', function() {
 				.connect(testConfig)
 				.then(server => {
 					this.podium = server
+					this.podium.setDebug(testDebug)
 					this.podium.serve(new Express)
 					done()
 				})
@@ -517,6 +520,7 @@ describe('Podium', function() {
 						.connect(clientTestConfig)
 						.then(client => {
 							this.podium = client
+							this.podium.setDebug(testDebug)
 							done()
 						})
 						.catch(error => done(error))

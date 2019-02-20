@@ -218,8 +218,7 @@ export class Podium {
 			if (accounts.length === 0) {
 				reject(new Error("Received empty accounts array"));
 			} else {
-				this.debugOut("Writing to Ledger (x",
-					accounts.length, "):", payload)
+				this.debugOut(`Writing to ${accounts.length} ledger paths: ${payload}`)
 				RadixTransactionBuilder
 					.createPayloadAtom(
 						accounts,
@@ -239,6 +238,7 @@ export class Podium {
 
 
 	storeRecords() {
+		this.debugOut(`Storing multiple records...`)
 		return new Promise((resolve, reject) => {
 
 			// Unpack arg list
@@ -267,6 +267,7 @@ export class Podium {
 
 
 	storeMedia(image, imageURL) {
+		this.debugOut(`Storing media on S3`)
 		return new Promise((resolve, reject) => {
 			this.S3
 				.putObject({
@@ -339,7 +340,7 @@ export class Podium {
 				next: item => {
 
 					// Log debug
-					this.debugOut("Received: ", item.data.payload)
+					this.debugOut(`Received Item: ${item.data.payload}`)
 
 					// Cancel shortcut timer
 					if (skipper) { clearTimeout(skipper) }
@@ -367,7 +368,7 @@ export class Podium {
 
 				},
 				error: error => {
-					this.debugOut("Encountered Error", error.message)
+					console.error(error)
 					clearTimeout(expire)
 					channel.unsubscribe();
 					reject(error)
@@ -454,6 +455,7 @@ export class Podium {
 				const result = Map(fromJS(JSON.parse(item.data.payload)))
 					.set("received", (new Date()).getTime())
 					.set("created", item.data.timestamp)
+				this.debugOut(`Received Item on Channel: ${result.toJS()}`)
 
 				// Run callback
 				callback(result)
@@ -821,12 +823,13 @@ export class PodiumServer extends Podium {
 						db.getCollection("users") ||
 						db.addCollection("users", {
 							unique: ["id", "address"]
-						});
+						})
 
 					// Confirm or create store for alerts
 					let alerts = db.getCollection("alerts")
 					if (!alerts) {
 						alerts = db.addCollection("alerts", {
+							unique: ["key"],
 							ttl: 7 * 24 * 60 * 60 * 1000,		// Alerts are kept for 1 week
 							ttlInterval: 24 * 60 * 60 * 1000	// And cleared out daily
 						})

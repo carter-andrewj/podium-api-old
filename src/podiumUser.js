@@ -948,14 +948,14 @@ export class PodiumServerActiveUser extends PodiumActiveUser {
 	}
 
 
-	clearAlerts(ids) {
-		this.debugOut(`Clearing Alerts [${ids.toJS()}] for User-${this.address}`)
+	clearAlerts(keys) {
+		this.debugOut(`Clearing Alerts [${keys.toJS()}] for User-${this.address}`)
 		this.podium.db
 			.getCollection("alerts")
 			.chain()
 			.find({
 				to: { '$eq': this.address },
-				'$loki': { '$in': ids.toJS() }
+				key: { '$in': keys.toJS() }
 			})
 			.update(item => {
 				item.seen = true
@@ -1069,13 +1069,13 @@ export class PodiumClientActiveUser extends PodiumClientUser {
 	}
 
 
-	clearAlerts(ids) {
-		this.debugOut(`Clearing alerts [${ids.toJS()}] for User-${this.address}`)
+	clearAlerts(keys) {
+		this.debugOut(`Clearing alerts [${keys.toJS()}] for User-${this.address}`)
 		return new Promise(async (resolve, reject) => {
 			this.podium
 				.dispatch(
 					"/clearalerts",
-					{ ids: JSON.stringify(ids.toJS()) },
+					{ keys: JSON.stringify(keys.toJS()) },
 					this.identity
 				)
 				.then(() => resolve())

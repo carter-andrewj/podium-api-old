@@ -1188,12 +1188,14 @@ export class PodiumServer extends Podium {
 				// Unpack request
 				const data = request.body
 
+
+
 				// Get alerts
 				this.withIdentity(data.keyPair)
 					.then(user => user.clearAlerts(
-						fromJS(JSON.parse(data.ids))
+						fromJS(JSON.parse(data.keys))
 					))
-					.then(alerts => response
+					.then(() => response
 						.status(200)
 						.json({})
 						.end()

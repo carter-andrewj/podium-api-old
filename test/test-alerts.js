@@ -10,7 +10,8 @@ export function shouldFlagSeenAlerts() {
 		this.otherUser.alerts(true, 100, true)
 			.then(alerts => {
 				const alertIDs = alerts
-					.map(a => a.get("$loki"))
+					.map(a => a.get("key"))
+					.toList()
 				expect(alerts).to
 					.be.instanceOf(List)
 					.and.have.size(3)

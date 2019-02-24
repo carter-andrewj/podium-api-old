@@ -3,6 +3,8 @@ import chai, { expect } from 'chai';
 import { Map, Set, List, fromJS } from 'immutable';
 
 import { PodiumPost } from '../src/podiumPost';
+import { PodiumError } from '../src/podiumError';
+import { postCost } from '../src/utils';
 
 
 
@@ -26,20 +28,30 @@ export function preparePosts(env, done) {
 		})
 		.then(postContent => {
 			env.postContent = postContent
-			return env.otherUser.createPost(
+			var replyPromise = env.otherUser.createPost(
 				env.replyData.text,
 				Map(),
 				env.post.address
 			)
+			var chainPromise = env.user.createPost(
+				env.longData.text,
+				Map(),
+				env.post.address
+			)
+			return Promise.all([replyPromise, chainPromise])
 		})
 
 		// Reply to reply with a mention
-		.then(reply => {
+		.then(([reply, chain]) => {
 			env.reply = reply
-			return env.reply.content(true)
+			env.chain = chain
+			const replyContent = env.reply.content(true)
+			const chainContent = env.chain.content(true)
+			return Promise.all([replyContent, chainContent])
 		})
-		.then(replyContent => {
+		.then(([replyContent, chainContent]) => {
 			env.replyContent = replyContent
+			env.chainContent = chainContent
 			return env.user.createPost(
 				env.threadData.text,
 				fromJS({ mentions: [env.otherUser.address] }),
@@ -72,13 +84,27 @@ export function shouldCreatePosts() {
 	})
 
 
-	it("cannot be created with no text")
-	// And other content validation checks
+	// it("cannot be created with no text", function() {
+	// 	var emptyPost = this.user.createPost("", Map())
+	// 	return expect(emptyPost).to
+	// 		.be.rejectedWith(PodiumError)
+	// 		.and.eventually.satisfy(error => error.code === 4)
+	// })
+
+
+	// it("cannot reply to non-existent posts", function() {
+	// 	var badReply = this.user.createPost(this.postData.text, Map(), "badaddress")
+	// 	return expect(badReply).to
+	// 		.be.rejectedWith(PodiumError)
+	// 		.and.eventually.satisfy(error => error.code === 5)
+	// })
 
 
 	it("have correct content", function() {
 		expect(this.postContent).to
 			.have.property("text", this.postData.text)
+		expect(this.postContent).to
+			.have.property("entries", 1)
 		expect(this.postContent).to
 			.have.property("parent", null)
 		expect(this.postContent).to
@@ -87,6 +113,62 @@ export function shouldCreatePosts() {
 			.have.property("origin", this.post.address)
 		expect(this.postContent).to
 			.have.property("depth", 0)
+		expect(this.postContent).to
+			.have.property("chain", 0)
+	})
+
+
+	it("cost the right number of tokens", function(done) {
+		this.retries(2)
+		Promise.all([
+				this.user.transactionIndex(true),
+				this.user.getBalance(true),
+				this.otherUser.transactionIndex(true),
+				this.otherUser.getBalance(true)
+			])
+			.then(([transactions, balance,
+					otherTransactions, otherBalance]) => {
+
+				// Calculate expected post costs
+				const cost = postCost(this.postData.text)
+				const replyCost = postCost(this.replyData.text)
+				const threadCost = postCost(this.threadData.text)
+				const chainCost = postCost(this.longData.text)
+
+				// Check costs match with balances
+				expect(transactions).to
+					.be.instanceOf(List)
+					.and.have.size(5)
+				expect(balance).to
+					.equal(900 - cost - threadCost - chainCost)
+
+				expect(otherTransactions).to
+					.be.instanceOf(List)
+					.and.have.size(3)
+				expect(otherBalance).to
+					.equal(1100 - replyCost)
+
+				done()
+			
+			})
+			.catch(done)
+	})
+
+
+	it("cannot be created with insufficient funds", function() {
+		var insufficientFundsPost = this.user.getBalance(true)
+			.then(balance => this.user
+				.createTransaction(this.otherUser.address, balance)
+			)
+			.then(() => new Promise(resolve => setTimeout(resolve, 5000)))
+			.then(() => this.user.getBalance())
+			.then(balance => {
+				expect(balance).to.equal(0)
+				return this.user.createPost(this.postData.text, Map())
+			})
+		return expect(insufficientFundsPost).to
+			.be.rejectedWith(PodiumError)
+			.and.eventually.satisfy(error => error.code === 6)
 	})
 
 
@@ -94,7 +176,7 @@ export function shouldCreatePosts() {
 		var postList = this.user.postIndex(true)
 		return expect(postList).to.eventually
 			.be.an.instanceOf(Set)
-			.and.have.size(2)
+			.and.have.size(3)
 			.and.include(this.post.address)
 			.and.include(this.thread.address)
 	})
@@ -104,7 +186,7 @@ export function shouldCreatePosts() {
 		var passivePostList = this.passiveUser.postIndex(true)
 		return expect(passivePostList).to.eventually
 			.be.an.instanceOf(Set)
-			.and.have.size(2)
+			.and.have.size(3)
 			.and.include(this.post.address, this.thread.address)
 	})
 
@@ -124,6 +206,8 @@ export function shouldCreatePosts() {
 		expect(this.replyContent).to
 			.have.property("text", this.replyData.text)
 		expect(this.replyContent).to
+			.have.property("entries", 1)
+		expect(this.replyContent).to
 			.have.property("parent", this.post.address)
 		expect(this.replyContent).to
 			.have.property("grandparent", null)
@@ -131,6 +215,33 @@ export function shouldCreatePosts() {
 			.have.property("origin", this.post.address)
 		expect(this.replyContent).to
 			.have.property("depth", 1)
+		expect(this.replyContent).to
+			.have.property("chain", 0)
+	})
+
+
+	it("can be created with too much text for 1 payload", function() {
+		expect(this.chain).to
+			.be.an.instanceOf(PodiumPost)
+		expect(this.chain).to
+			.have.property("address")
+	})
+
+	it("have correct content when requiring multiple payloads", function() {
+		expect(this.chainContent).to
+			.have.property("text", this.longData.text)
+		expect(this.chainContent).to
+			.have.property("entries", 3)
+		expect(this.chainContent).to
+			.have.property("parent", this.post.address)
+		expect(this.chainContent).to
+			.have.property("grandparent", null)
+		expect(this.chainContent).to
+			.have.property("origin", this.post.address)
+		expect(this.chainContent).to
+			.have.property("depth", 1)
+		expect(this.chainContent).to
+			.have.property("chain", 1)
 	})
 
 
@@ -145,6 +256,8 @@ export function shouldCreatePosts() {
 		expect(this.threadContent).to
 			.have.property("text", this.threadData.text)
 		expect(this.threadContent).to
+			.have.property("entries", 1)
+		expect(this.threadContent).to
 			.have.property("parent", this.reply.address)
 		expect(this.threadContent).to
 			.have.property("grandparent", this.post.address)
@@ -152,6 +265,8 @@ export function shouldCreatePosts() {
 			.have.property("origin", this.post.address)
 		expect(this.threadContent).to
 			.have.property("depth", 2)
+		expect(this.threadContent).to
+			.have.property("chain", 0)
 	})
 
 
@@ -162,7 +277,7 @@ export function shouldCreatePosts() {
 			.then(([replyIndex, threadIndex]) => {
 				expect(replyIndex).to
 					.be.an.instanceOf(Set)
-					.and.have.size(1)
+					.and.have.size(2)
 					.and.include(this.reply.address)
 				expect(threadIndex).to
 					.be.an.instanceOf(Set)
@@ -201,7 +316,7 @@ export function shouldCreatePosts() {
 
 
 	it("can listen to user's posts", function() {
-		expect(this.postCount).to.equal(2)
+		expect(this.postCount).to.equal(3)
 	})
 
 
@@ -232,18 +347,27 @@ export function shouldCreatePostAlerts() {
 		this.user
 			.alerts(false, 100, true)
 			.then(alerts => {
+
 				expect(alerts).to
 					.be.instanceOf(List)
-					.and.have.size(1)
-				expect(alerts.get(0)).to
+
+				const replyAlerts = alerts
+					.filter(a => a.get("type") === "reply")
+					.toList()
+				expect(replyAlerts).to
+					.have.size(1)
+
+				expect(replyAlerts.first()).to
 					.have.property("type", "reply")
-				expect(alerts.get(0)).to
+				expect(replyAlerts.first()).to
 					.have.property("from", this.otherUser.address)
-				expect(alerts.get(0)).to
+				expect(replyAlerts.first()).to
 					.have.property("to", this.user.address)
-				expect(alerts.get(0)).to
+				expect(replyAlerts.first()).to
 					.have.property("about", this.reply.address)
+
 				done()
+
 			})
 			.catch(error => done(error))
 	})
@@ -252,18 +376,27 @@ export function shouldCreatePostAlerts() {
 		this.otherUser
 			.alerts(false, 100, true)
 			.then(alerts => {
+
 				expect(alerts).to
 					.be.instanceOf(List)
-					.and.have.size(3) // Follow > Mention > Reply
-				expect(alerts.get(1)).to
+				
+				const mentionAlerts = alerts
+					.filter(a => a.get("type") === "mention")
+					.toList()
+				expect(mentionAlerts).to
+					.have.size(1)
+
+				expect(mentionAlerts.first()).to
 					.have.property("type", "mention")
-				expect(alerts.get(1)).to
+				expect(mentionAlerts.first()).to
 					.have.property("from", this.user.address)
-				expect(alerts.get(1)).to
+				expect(mentionAlerts.first()).to
 					.have.property("to", this.otherUser.address)
-				expect(alerts.get(1)).to
+				expect(mentionAlerts.first()).to
 					.have.property("about", this.thread.address)
+
 				done()
+
 			})
 			.catch(error => done(error))
 	})
@@ -316,7 +449,7 @@ export function shouldCachePostData() {
 			.then(posts => {
 				expect(posts).to
 					.be.an.instanceOf(Set)
-					.and.have.size(2)
+					.and.have.size(3)
 					.and.include(this.post.address)
 					.and.include(this.thread.address)
 				expect(posts).to
@@ -332,7 +465,7 @@ export function shouldCachePostData() {
 			.then(replies => {
 				expect(replies).to
 					.be.an.instanceOf(Set)
-					.and.have.size(1)
+					.and.have.size(2)
 					.and.include(this.reply.address)
 				expect(replies).to
 					.equal(this.post.cache.get("replies"))

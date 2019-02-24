@@ -6,7 +6,7 @@ import { PodiumRecord } from './podiumRecord';
 import { PodiumError } from './podiumError';
 import { PodiumCache } from './podiumCache';
 
-import { filterAsync, checkThrow } from './utils';
+import { postCost, chunkText, filterAsync, checkThrow } from './utils';
 
 
 
@@ -85,6 +85,42 @@ export class PodiumUser extends PodiumRecord {
 		})
 	}
 
+
+
+
+// TOKENS
+
+	transactionIndex() {
+		this.debugOut(`Fetching the transactions of User-${this.address}`)
+		return new Promise((resolve, reject) => {
+			this.podium
+				.getHistory(this.podium.path.forPODTransactionsOf(this.address))
+				.then(resolve)
+				.catch(reject)
+		})
+	}
+
+
+	getBalance() {
+		return new Promise((resolve, reject) => {
+			this.transactionIndex(true)
+				.then(transactions => transactions
+					.reduce((total, next) => total + next.get("value"), 0))
+				.then(resolve)
+				.catch(reject)
+		})
+	}
+
+
+	onTransaction(callback) {
+		this.debugOut(`Added a callback for each transaction with User-${this.address}`)
+		this.podium.openChannel(
+			this.podium.path.forPODTransactionsOf(this.address),
+			record => Promise
+				.resolve(callback(record))
+				.catch(console.error)
+		)
+	}
 
 
 
@@ -276,6 +312,7 @@ export class PodiumClientUser extends PodiumUser {
 			followers: Set(),
 			following: Set(),
 			posts: Set(),
+			transactions: List(),
 			promoted: Set(),
 			reports: Set(),
 			alerts: Set()
@@ -294,6 +331,13 @@ export class PodiumClientUser extends PodiumUser {
 
 	get picture() { return this.cache.get("profile", "pictureURL") }
 
+	get transactions() { return this.cache.get("transactions") }
+	get balance() {
+		return this.cache
+			.get("transactions")
+			.reduce((total, next) => total + next.get("value"), 0)
+	}
+
 	get posts() {
 		return this.cache
 			.get("posts")
@@ -308,7 +352,7 @@ export class PodiumClientUser extends PodiumUser {
 			.toList()
 	}
 
-	get follower() {
+	get followers() {
 		return this.cache
 			.get("followers")
 			.map(f => this.podium.user(f))
@@ -320,11 +364,12 @@ export class PodiumClientUser extends PodiumUser {
 		this.debugOut(`Loading all data for User-${this.address}`)
 		return new Promise((resolve, reject) => {
 			var profilePromise = this.profile(force)
+			var transactionPromise = this.transactionIndex(force)
+			var postsPromise = this.postIndex(force)
 			var followedPromise = this.followingIndex(force)
 			var followerPromise = this.followerIndex(force)
-			var postsPromise = this.postIndex(force)
-			Promise.all([profilePromise, followedPromise,
-						 followerPromise, postsPromise])
+			Promise.all([profilePromise, transactionPromise, postsPromise, 
+						 followedPromise, followerPromise])
 				.then(() => resolve(this))
 				.catch(error => reject(error))
 		})
@@ -354,10 +399,42 @@ export class PodiumClientUser extends PodiumUser {
 	}
 
 
-	withProfile() {
+	withProfile(force = false) {
 		this.debugOut(`Ensuring profile of User-${this.address} is loaded before proceeding`)
 		return new Promise((resolve, reject) => {
-			this.profile(false)
+			this.profile(force)
+				.then(() => resolve(this))
+				.catch(reject)
+		})
+	}
+
+
+	transactionIndex(force = false) {
+		return new Promise((resolve, reject) => {
+			if (!force && this.cache.is("transactions")) {
+				this.debugOut(`Serving cached transactions for User-${this.address}`)
+				resolve(this.cache.get("transactions"))
+			} else {
+				PodiumUser.prototype.transactionIndex.call(this)
+					.then(transactions => {
+						const balance = transactions.reduce(
+							(total, next) => total + next.get("value"),
+							0
+						)
+						this.cache.swap("transactions", transactions)
+						this.cache.swap("balance", balance)
+						resolve(transactions)
+					})
+					.catch(reject)
+			}
+		})
+	}
+
+
+	withTransactions(force = false) {
+		this.debugOut(`Ensuring transactions of User-${this.address} is loaded before proceeding`)
+		return new Promise((resolve, reject) => {
+			this.transactionIndex(force)
 				.then(() => resolve(this))
 				.catch(reject)
 		})
@@ -589,6 +666,65 @@ export class PodiumActiveUser extends PodiumUser {
 
 
 
+// TOKENS
+
+	createTransaction(to, value) {
+		this.debugOut(`Sending ${value} POD from User-${this.address} to ${to}`)
+		return new Promise(async (resolve, reject) => {
+
+			// Ensure balance is up to date
+			const balance = await this.getBalance(true)
+
+			// Reject transactions with negative value
+			if (value < 0) {
+				reject(new PodiumError().withCode(7))
+
+			// Ensure user has sufficient balance for this transaction
+			} else if (value > balance) {
+				reject(new PodiumError().withCode(6))
+
+			// Otherwise, construct the payloads and transfer the funds
+			} else {
+
+				// Make sender record
+				const senderAccount = this.podium.path
+					.forPODTransactionsOf(this.address)
+				const senderRecord = {
+					record: "transaction",
+					type: "POD",
+					value: -1 * value,
+					to: to
+				}
+
+				// Make received record
+				const receiverAccount = this.podium.path
+					.forPODTransactionsOf(to)
+				const receiverRecord = {
+					record: "transaction",
+					type: "POD",
+					value: value,
+					from: this.address
+				}
+
+				// Carry out transaction
+				this.podium
+					.storeRecords(
+						this.identity,
+						[senderAccount], senderRecord,
+						[receiverAccount], receiverRecord
+					)
+					.then(() => resolve(fromJS(senderRecord)))
+					.catch(reject)
+
+			}
+
+		})
+	}
+
+
+
+
+
 // TOPICS
 
 	createTopic(
@@ -640,6 +776,10 @@ export class PodiumActiveUser extends PodiumUser {
 		this.debugOut(`User-${this.address} is posting: "${text}"`)
 		return new Promise(async (resolve, reject) => {
 
+			// Load balance and calculate post cost
+			const cost = postCost(text)
+			const balance = await this.getBalance(true)
+
 			// Load parent post
 			let parent;
 			if (parentAddress) {
@@ -654,6 +794,10 @@ export class PodiumActiveUser extends PodiumUser {
 			} else if (parentAddress && !parent) {
 				reject(new PodiumError().withCode(5))
 
+			// Ensure user has enough balance to pay for post
+			} else if (cost > balance) {
+				reject(new PodiumError().withCode(6))
+
 			} else {
 
 				//TODO - Upload media
@@ -667,6 +811,8 @@ export class PodiumActiveUser extends PodiumUser {
 				// Unpack references
 				const mentions = references.get("mentions") || List()
 
+				// Handle long posts
+				const textList = List(chunkText(text, 128))
 
 				// Build post record
 				const postRecord = {
@@ -674,15 +820,23 @@ export class PodiumActiveUser extends PodiumUser {
 					record: "post",
 					type: "post",
 
-					text: text,
+					text: textList.first(),
+					cost: cost,
+
+					entry: 0,
+					entries: textList.size,
+
 					address: postAddress,
 
 					author: this.address,
 					parent: (parent) ? parentAddress : null,
+					parentAuthor: (parent) ? parent.get("author") : null,
 					grandparent: (parent) ? parent.get("parent") : null,
 
 					origin: (parent) ? parent.get("origin") : postAddress,
 					depth: (parent) ? parent.get("depth") + 1 : 0,
+					chain: (parent && parent.get("author") === this.address) ?
+						parent.get("chain") + 1 : 0, 
 
 					mentions: mentions.toJS(),
 
@@ -696,12 +850,41 @@ export class PodiumActiveUser extends PodiumUser {
 					address: postAddress
 				}
 
+				// Build transaction record
+				const transactionAccount = this.podium.path.forPODTransactionsOf(this.address)
+				const transactionRecord = {
+					record: "transaction",
+					type: "POD",
+					to: postAddress,
+					for: "post",
+					value: -1 * cost
+				}
+
 				// Write main post records
 				var postWrite = this.podium.storeRecords(
 					this.identity,
+					[transactionAccount], transactionRecord,
 					[postAccount], postRecord,
 					[indexAccount], indexRecord
 				)
+
+				
+				// Write additional post entries, if required
+				let entryWrite = []
+				if (textList.size > 1) {
+					entryWrite = textList
+						.rest()
+						.map((t, i) => this.podium.storeRecord(
+							this.identity,
+							[postAccount],
+							{
+								entry: i + 1,
+								entries: textList.size,
+								text: t
+							}
+						))
+						.toJS()
+				}
 
 				//TODO - Mentions, Topics (and other references, etc...)
 
@@ -721,7 +904,7 @@ export class PodiumActiveUser extends PodiumUser {
 				} 
 
 				// Wait for all writes to complete
-				Promise.all([postWrite, replyWrite])
+				Promise.all([postWrite, ...entryWrite, replyWrite])
 					.then(() => {
 						var post = this.podium
 							.post(postAddress, this.address)
@@ -743,6 +926,8 @@ export class PodiumActiveUser extends PodiumUser {
 		this.debugOut(`User-${this.address} is promoting Post-${postAddress}`)
 		return new Promise((resolve, reject) => {
 
+			//TODO - Ensure user has sufficient balance
+
 			// Get account for the promoting user's posts
 			const postAccount = this.podium.path.forPostsBy(this.address)
 			const postRecord = {
@@ -760,11 +945,22 @@ export class PodiumActiveUser extends PodiumUser {
 				by: this.address
 			}
 
+			// Build transaction record
+			const transactionAccount = this.podium.path.forPODTransactionsOf(this.address)
+			const transactionRecord = {
+				record: "transaction",
+				type: "POD",
+				to: postAddress,
+				for: "promotion",
+				value: 25
+			}
+
 			// Store records in ledger
 			this.podium.storeRecords(
 					this.identity,
 					[postAccount], postRecord,
 					[promoteAccount], promoteRecord,
+					[transactionAccount], transactionRecord
 				)
 				.then(result => resolve(fromJS(postRecord)))
 				.catch(error => reject(error))
@@ -929,22 +1125,24 @@ export class PodiumServerActiveUser extends PodiumActiveUser {
 	}
 
 
-	createAlert(type, userAddress, subjectAddress) {
-		this.debugOut(`Creating a "${type}"" Alert for User-${userAddress} ` +
-					  `from User-${this.address}` +
-					  `${subjectAddress ? ` about Post-${subjectAddress}` : ""}`)
-		const created = (new Date()).getTime()
-		this.podium.db
-			.getCollection("alerts")
-			.insert({
-				created: created,
-				to: userAddress,
-				from: this.address,
-				type: type,
-				about: subjectAddress,
-				seen: false,
-				key: `${this.address}${userAddress}${type}${created}`
-			})
+	createAlert(type, userAddress, about) {
+		if (userAddress !== this.address) {
+			this.debugOut(`Creating a "${type}"" Alert for User-${userAddress} ` +
+						  `from User-${this.address}` +
+						  `${about ? ` about ${about}` : ""}`)
+			const created = (new Date()).getTime()
+			this.podium.db
+				.getCollection("alerts")
+				.insert({
+					created: created,
+					to: userAddress,
+					from: this.address,
+					type: type,
+					about: about,
+					seen: false,
+					key: `${this.address}${userAddress}${type}${created}`
+				})
+		}
 	}
 
 
@@ -966,6 +1164,23 @@ export class PodiumServerActiveUser extends PodiumActiveUser {
 
 
 // ALERT-SENDING WRAPPERS FOR CREATION METHODS
+
+	createTransaction(to, value) {
+		return new Promise((resolve, reject) => {
+			PodiumActiveUser.prototype.createTransaction
+				.call(this, to, value)
+				.then(transaction => {
+					this.createAlert(
+						"transaction",
+						to,
+						value
+					)
+					resolve(transaction)
+				})
+				.catch(reject)
+		})
+	}
+
 
 	createPost(
 			text,
@@ -1141,6 +1356,46 @@ export class PodiumClientActiveUser extends PodiumClientUser {
 		})
 	}
 
+
+
+
+// TOKENS
+
+	createTransaction(to, value) {
+		return new Promise((resolve, reject) => {
+			this.podium
+				.dispatch(
+					"/transaction",
+					{
+						to: to,
+						value: value
+					},
+					this.identity
+				)
+				.then(transaction => {
+					this.cache.append("transactions", transaction)
+					resolve(transaction)
+				})
+				.catch(reject)
+		})
+	}
+
+
+	requestFunds(value) {
+		return new Promise((resolve, reject) => {
+			this.podium
+				.dispatch(
+					"/faucet",
+					{ value: value },
+					this.identity
+				)
+				.then(transaction => {
+					this.cache.append("transactions", transaction)
+					resolve(transaction)
+				})
+				.catch(reject)
+		})
+	}
 
 
 

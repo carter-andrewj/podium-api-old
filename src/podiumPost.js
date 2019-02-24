@@ -1,4 +1,4 @@
-import { Map, fromJS, Set } from 'immutable';
+import { Map, List, fromJS, Set } from 'immutable';
 
 import { PodiumRecord } from './podiumRecord';
 import { PodiumCache } from './podiumCache';
@@ -21,10 +21,24 @@ export class PodiumPost extends PodiumRecord {
 			this.podium
 				.getHistory(this.podium.path.forPost(this.address))
 				.then(postHistory => {
-					const postContent = postHistory
-						.reduce((post, next) => {
+
+					// Collate post content
+					var postContent = postHistory.reduce(
+						(post, next) => {
 							// TODO - Merge edits and retractions
 							//		  into a single cohesive map
+
+							// Combine entries from long posts
+							if (next.get("entry") || next.get("entry") === 0) {
+								post = post
+									.update("textList",
+										l => l.set(
+											next.get("entry"),
+											next.get("text")
+										)
+									)
+									.delete("entry")
+							}
 
 							// Collate timestamps
 							const lastTime = post.get("created")
@@ -45,8 +59,27 @@ export class PodiumPost extends PodiumRecord {
 								.set("created", created)
 								.set("latest", latest)
 
-						}, Map({}))
+						},
+						Map({
+							textList: List()
+						})
+					)
+
+					// Combine post content
+					if (postContent.get("entries") !==
+							postContent.get("textList").size) {
+						postContent = postContent.set("incomplete", true)
+					} else {
+						postContent = postContent.set(
+							"text",
+							postContent.get("textList")
+								.reduce((a, b) => `${a}${b}`)
+						)
+					}
+
+					// Return post content
 					resolve(postContent)
+
 				})
 				.catch(error => reject(error))
 		})

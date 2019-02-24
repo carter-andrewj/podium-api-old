@@ -45,6 +45,21 @@ export function shouldSearchUsers() {
 			.catch(error => done(error))
 	})
 
+	it("is not case sensitive", function(done) {
+		this.podium.search(this.userData.id.toUpperCase())
+			.then(results => {
+				expect(results).to
+					.be.instanceOf(List)
+					.and.have.size(1)
+				expect(results.first()).to
+					.have.property("address", this.user.address)
+				expect(results.first()).to
+					.have.property("id", this.userData.id)
+				done()
+			})
+			.catch(error => done(error))
+	})
+
 	it("can safely find no users", function(done) {
 		this.podium.search("nothing")
 			.then(results => {

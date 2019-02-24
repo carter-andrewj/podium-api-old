@@ -11,6 +11,24 @@ export function getAccount(seed) {
 }
 
 
+
+export function postCost(text) {
+	return text.length + (9 * Math.floor(text.length / 128))
+}
+
+
+
+export function chunkText(text, size) {
+	const chunks = Math.ceil(text.length / size)
+	const result = []
+	for (var i = 0; i < chunks; i++) {
+		result.push(text.substring(i * size, (i + 1) * size))
+	}
+	return result
+}
+
+
+
 export function filterAsync(subject, predicate) {
 	return new Promise((resolve, reject) => {
 		var predicatePromises = subject

@@ -53,6 +53,13 @@ export class PodiumCache {
 	}
 
 
+	append(key, value) {
+		this.cache[key] = this.cache[key].push(value)
+		this.last = this.last
+			.setIn([key, "update"], (new Date).getTime())
+	}
+
+
 	set(keys, value) {
 		this.cache[keys[0]] = this.cache[keys[0]]
 			.setIn(keys.slice(1, keys.length), value)

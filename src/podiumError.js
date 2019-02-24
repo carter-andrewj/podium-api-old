@@ -29,6 +29,12 @@ export class PodiumError extends Error {
 				return "A user with that ID already exists."
 			case (4):
 				return "Cannot post an empty string."
+			case (5):
+				return "Cannot reply to nonexistent post."
+			case (6):
+				return "Insufficient funds."
+			case (7):
+				return "Cannot send < 0 funds."
 
 			// Client-specific errors
 			case (100): 

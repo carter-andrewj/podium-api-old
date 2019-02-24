@@ -28,10 +28,10 @@ export class PodiumPaths {
 	}
 
 	// Tokens
-	forPODof(address) {
+	forPODTransactionsOf(address) {
 		return getAccount("podium-token-transactions-of-" + address);
 	}
-	forAUDof(address) {
+	forAUDTransactionsOf(address) {
 		return getAccount("audium-token-transactions-of-" + address);
 	}
 

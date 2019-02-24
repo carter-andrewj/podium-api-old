@@ -98,16 +98,25 @@ export function shouldCreateFollowAlerts() {
 		this.otherUser
 			.alerts(false, 100, true)
 			.then(alerts => {
+
 				expect(alerts).to
 					.be.instanceOf(List)
-					.and.have.size(1)
-				expect(alerts.get(0)).to
+
+				const followAlerts = alerts
+					.filter(a => a.get("type") === "follow")
+					.toList()
+				expect(followAlerts).to
+					.have.size(1)
+
+				expect(followAlerts.first()).to
 					.have.property("type", "follow")
-				expect(alerts.get(0)).to
+				expect(followAlerts.first()).to
 					.have.property("from", this.user.address)
-				expect(alerts.get(0)).to
+				expect(followAlerts.first()).to
 					.and.have.property("to", this.otherUser.address)
+
 				done()
+
 			})
 			.catch(error => done(error))
 	})

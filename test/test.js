@@ -22,6 +22,8 @@ import { PodiumPost } from '../src/podiumPost';
 import { prepareUsers, shouldCreateUsers } from './test-users';
 import { prepareProfiles, shouldCreateProfiles,
 		 shouldCacheProfiles } from './test-profiles';
+import { prepareTokens, shouldCreateTransactions,
+		 shouldCreateTransactionAlerts, shouldProvideTokens } from './test-tokens';
 import { prepareFollow, shouldFollow,
 		 shouldFollowWithRoot, shouldFollowWithoutRoot,
 		 shouldCreateFollowAlerts, shouldCacheFollowData } from './test-following';
@@ -137,6 +139,13 @@ const testReplyA = {
 const testThreadA = {
 	text: "This is a test thread..."
 }
+const testLongA = {
+	text: "This is a really long post, for use when testing really long posting. " +
+		"This is a really long post, for use when testing really long posting. " +
+		"This is a really long post, for use when testing really long posting. " +
+		"This is a really long post, for use when testing really long posting. " +
+		"This is a really long post, for use when testing really long posting."
+}
 
 
 const testPostB = {
@@ -147,6 +156,13 @@ const testReplyB = {
 }
 const testThreadB = {
 	text: "This is also a test thread..."
+}
+const testLongB = {
+	text: "This is also a really long post, for use when testing really long posting. " +
+		"This is also a really long post, for use when testing really long posting. " +
+		"This is also a really long post, for use when testing really long posting. " +
+		"This is also a really long post, for use when testing really long posting. " +
+		"This is also a really long post, for use when testing really long posting."
 }
 
 
@@ -159,6 +175,14 @@ const testReplyC = {
 const testThreadC = {
 	text: "This is another test thread..."
 }
+const testLongC = {
+	text: "Yet another really long post, for use when testing really long posting. " +
+		"Yet another really long post, for use when testing really long posting. " +
+		"Yet another really long post, for use when testing really long posting. " +
+		"Yet another really long post, for use when testing really long posting. " +
+		"Yet another really long post, for use when testing really long posting."
+}
+
 
 
 const testImage = "./test/testdata/testImage.jpg"
@@ -307,6 +331,15 @@ describe('Podium', function() {
 		})
 
 
+		// Test Tokens
+		describe("Tokens Transactions", function() {
+			before(function(done) {
+				prepareTokens(this, done)
+			})
+			shouldCreateTransactions()
+		})
+
+
 		// Test Following
 		describe("Following...", function() {
 			before(function(done) {
@@ -330,6 +363,7 @@ describe('Podium', function() {
 				this.postData = testPostA
 				this.replyData = testReplyA
 				this.threadData = testThreadA
+				this.longData = testLongA
 				preparePosts(this, done)
 			})
 			shouldCreatePosts()
@@ -415,6 +449,22 @@ describe('Podium', function() {
 					.catch(error => done(error))
 			})
 
+			it("mints tokens", function(done) {
+				Promise.all([
+						this.podium.rootUser.transactionIndex(true),
+						this.podium.rootUser.getBalance()
+					])
+					.then(([transactions, balance]) => {
+						expect(transactions).to
+							.be.instanceOf(List)
+							.and.have.size(2)
+						expect(balance).to
+							.equal(1000001000)
+						done()
+					})
+					.catch(done)
+			})
+
 
 			describe("Server Users", function() {
 
@@ -461,6 +511,16 @@ describe('Podium', function() {
 				})
 
 
+				// Test Tokens
+				describe("Server Token Transactions", function() {
+					before(function(done) {
+						prepareTokens(this, done)
+					})
+					shouldCreateTransactions()
+					shouldCreateTransactionAlerts()
+				})
+
+
 				// Test Following
 				describe("Server Following...", function() {
 
@@ -489,6 +549,7 @@ describe('Podium', function() {
 						this.postData = testPostB
 						this.replyData = testReplyB
 						this.threadData = testThreadB
+						this.longData = testLongB
 						preparePosts(this, done)
 					})
 					shouldCreatePosts()
@@ -573,6 +634,16 @@ describe('Podium', function() {
 					})
 
 
+					// Test Tokens
+					describe("Client Token Transactions", function() {
+						before(function(done) {
+							prepareTokens(this, done)
+						})
+						shouldCreateTransactions()
+						shouldCreateTransactionAlerts()
+					})
+
+
 					// Test Following
 					describe("Client Following...", function() {
 						before(function(done) {
@@ -599,6 +670,7 @@ describe('Podium', function() {
 							this.postData = testPostC
 							this.replyData = testReplyC
 							this.threadData = testThreadC
+							this.longData = testLongC
 							preparePosts(this, done)
 						})
 						shouldCreatePosts()
@@ -616,6 +688,12 @@ describe('Podium', function() {
 					// Test search
 					describe("Search", function() {
 						shouldSearchUsers()
+					})
+
+
+					// Test faucet
+					describe("Faucet", function() {
+						shouldProvideTokens()
 					})
 
 

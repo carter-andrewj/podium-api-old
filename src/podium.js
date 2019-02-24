@@ -563,7 +563,7 @@ export class Podium {
 						const address = identity.account.getAddress();
 
 						// Generate user public record
-						const profileAccount = this.path.forProfileOf(address);
+						const profileAccount = this.path.forProfileOf(address)
 						const profilePayload = {
 							record: "profile",
 							type: "profile",
@@ -575,23 +575,17 @@ export class Podium {
 						}
 
 						// Generate user POD account
-						const podAccount = this.path.forPODof(address);
+						const podAccount = this.path.forPODTransactionsOf(address)
 						const podPayload = {
-							owner: address,
-							pod: 500,
-							from: ""
-						}
-
-						// Generate user AUD account
-						const audAccount = this.path.forAUDof(address);
-						const audPayload = {
-							owner: address,
-							pod: 10,
-							from: ""
+							record: "transaction",
+							type: "POD",
+							to: address,
+							value: 1000,
+							from: "creation"
 						}
 
 						// Generate user integrity record
-						const integrityAccount = this.path.forIntegrityOf(address);
+						const integrityAccount = this.path.forIntegrityOf(address)
 						const integrityPayload = {
 							owner: address,
 							i: 0.5,
@@ -599,13 +593,13 @@ export class Podium {
 						}
 
 						// Generate record of this user's address owning this ID
-						const ownershipAccount = this.path.forProfileWithID(id);
+						const ownershipAccount = this.path.forProfileWithID(id)
 						const ownershipPayload = {
 							record: "ownership",
 							type: "username",
 							id: id,
 							owner: address
-						};
+						}
 
 						// Encrypt keypair
 						const keyStore = this.path.forKeystoreOf(id, pw);
@@ -618,7 +612,6 @@ export class Podium {
 									[keyStore], encryptedKey,
 									[profileAccount], profilePayload,
 									[podAccount], podPayload,
-									[audAccount], audPayload,
 									[integrityAccount], integrityPayload,
 									[ownershipAccount], ownershipPayload
 								)
@@ -683,6 +676,31 @@ export class Podium {
 		})
 	}
 
+
+
+
+// TOKENS
+
+	mint(value, identity) {
+		return new Promise((resolve, reject) => {
+
+			// Create mint payload and fetch reserve account
+			const reserveAccount = this.path
+				.forPODTransactionsOf(identity.account.getAddress())
+			const mintPayload = {
+				record: "transaction",
+				type: "POD",
+				value: value,
+				from: "mint"
+			}
+
+			// Dispatch payload
+			this.storeRecord(identity, [reserveAccount], mintPayload)
+				.then(resolve)
+				.catch(reject)
+
+		})
+	}
 
 
 
@@ -768,15 +786,23 @@ export class PodiumServer extends Podium {
 					rootUserData.Bio
 				))
 
-				// Store root user and resolve
+				// Handle root user
 				.then(rootUser => {
+
+					// Store root user and update config
 					this.rootAddress = rootUser.address
 					this.rootUser = rootUser
 					this.config = this.config
 						.set("RootAddress", this.rootAddress)
 						.set("ResumeNetwork", true)
-					resolve(this)
+
+					// Mint Podium
+					return this.mint(1000000000, rootUser.identity)
+
 				})
+
+				// Resolve
+				.then(resolve)
 
 				// Handle errors
 				.catch(error => reject(error))
@@ -928,6 +954,10 @@ export class PodiumServer extends Podium {
 		this.createUserRoute()
 		this.isUserRoute()
 
+		// Transactions
+		this.createTransactionRoute()
+		this.requestFundsRoute()
+
 		// Alerts
 		this.alertsRoute()
 		this.clearAlertsRoute()
@@ -974,7 +1004,8 @@ export class PodiumServer extends Podium {
 						.getCollection("users")
 						.insert({
 							address: activeUser.address,
-							id: id
+							id: id,
+							searchid: id.toLowerCase()
 						})
 
 					// Follow root account
@@ -1084,7 +1115,7 @@ export class PodiumServer extends Podium {
 		return new Promise((resolve, reject) => {
 			const records = this.db
 				.getCollection("users")
-				.find({ "id": { "$regex": target }})
+				.find({ "searchid": { "$regex": target.toLowerCase() }})
 			const results = fromJS(records)
 				.map(rec => Map({
 					address: rec.get("address"),
@@ -1188,8 +1219,6 @@ export class PodiumServer extends Podium {
 				// Unpack request
 				const data = request.body
 
-
-
 				// Get alerts
 				this.withIdentity(data.keyPair)
 					.then(user => user.clearAlerts(
@@ -1198,6 +1227,68 @@ export class PodiumServer extends Podium {
 					.then(() => response
 						.status(200)
 						.json({})
+						.end()
+					)
+					.catch(error => response
+						.status(500)
+						.json({
+							podiumError: error.podiumError,
+							error: error.message,
+							code: error.podiumError ? error.code : 500
+						})
+						.end()
+					)
+
+			})
+	}
+
+
+	createTransactionRoute() {
+		this.server
+			.post("/transaction", (request, response) => {
+
+				// Unpack request
+				const data = request.body
+
+				// Build transaction
+				this.withIdentity(data.keyPair)
+					.then(user => user.createTransaction(
+						data.to, Number(data.value)
+					))
+					.then(txn => response
+						.status(200)
+						.json(txn.toJS())
+						.end()
+					)
+					.catch(error => response
+						.status(500)
+						.json({
+							podiumError: error.podiumError,
+							error: error.message,
+							code: error.podiumError ? error.code : 500
+						})
+						.end()
+					)
+
+			})
+	}
+
+
+	requestFundsRoute() {
+		this.server
+			.post("/faucet", (request, response) => {
+
+				// Unpack request
+				const data = request.body
+
+				// Transfer funds
+				this.withIdentity(data.keyPair)
+					.then(user => this.rootUser.createTransaction(
+						user.address, Number(data.value)
+					))
+					.then(txn => response
+						.status(200)
+						.json(txn.toJS())
 						.end()
 					)
 					.catch(error => response

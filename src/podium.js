@@ -1119,7 +1119,8 @@ export class PodiumServer extends Podium {
 			const results = fromJS(records)
 				.map(rec => Map({
 					address: rec.get("address"),
-					id: rec.get("id")
+					id: rec.get("id"),
+					searchid: rec.get("searchid")
 				}))
 				.toList()
 			resolve(results)

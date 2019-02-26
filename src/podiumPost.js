@@ -81,7 +81,13 @@ export class PodiumPost extends PodiumRecord {
 					resolve(postContent)
 
 				})
-				.catch(error => reject(error))
+				.catch(error => {
+					if (error instanceof PodiumError && error.code === 2) {
+						this.content().then(resolve).catch(reject)
+					} else {
+						reject(error)
+					}
+				})
 		})
 	}
 
@@ -98,7 +104,13 @@ export class PodiumPost extends PodiumRecord {
 						.toSet()
 					resolve(index)
 				})
-				.catch(error => reject(error))
+				.catch(error => {
+					if (error instanceof PodiumError && error.code === 2) {
+						resolve(Set())
+					} else {
+						reject(error)
+					}
+				})
 		})
 	}
 
@@ -110,7 +122,13 @@ export class PodiumPost extends PodiumRecord {
 					index = index.map(r => r.get("address")).toSet()
 					resolve(index)
 				})
-				.catch(error => reject(error))
+				.catch(error => {
+					if (error instanceof PodiumError && error.code === 2) {
+						resolve(Set())
+					} else {
+						reject(error)
+					}
+				})
 		})
 	}
 
@@ -123,7 +141,13 @@ export class PodiumPost extends PodiumRecord {
 					index = index.map(r => r.get("address")).toSet()
 					resolve(index)
 				})
-				.catch(error => reject(error))
+				.catch(error => {
+					if (error instanceof PodiumError && error.code === 2) {
+						resolve(Set())
+					} else {
+						reject(error)
+					}
+				})
 		})
 	}
 

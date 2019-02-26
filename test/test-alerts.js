@@ -14,16 +14,12 @@ export function shouldFlagSeenAlerts() {
 					.toList()
 				expect(alerts).to
 					.be.instanceOf(List)
-					.and.have.size(5)
+					.and.have.size(3)
 				expect(alerts.get(0)).to
 					.have.property("seen", false)
 				expect(alerts.get(1)).to
 					.have.property("seen", false)
 				expect(alerts.get(2)).to
-					.have.property("seen", false)
-				expect(alerts.get(3)).to
-					.have.property("seen", false)
-				expect(alerts.get(4)).to
 					.have.property("seen", false)
 				return this.otherUser.clearAlerts(alertIDs)
 			})
@@ -31,16 +27,12 @@ export function shouldFlagSeenAlerts() {
 			.then(alerts => {
 				expect(alerts).to
 					.be.instanceOf(List)
-					.and.have.size(5)
+					.and.have.size(3)
 				expect(alerts.get(0)).to
 					.have.property("seen", true)
 				expect(alerts.get(1)).to
 					.have.property("seen", true)
 				expect(alerts.get(2)).to
-					.have.property("seen", true)
-				expect(alerts.get(3)).to
-					.have.property("seen", true)
-				expect(alerts.get(4)).to
 					.have.property("seen", true)
 				done()
 			})
@@ -74,7 +66,7 @@ export function shouldCleanUpOldAlerts() {
 		// 2 follows of root, 1 follow, 2 replies, 1 mention
 		// all x2 (once for Server tests, once for Client)
 		var countBefore = alerts.count()
-		expect(countBefore).to.equal(17)
+		expect(countBefore).to.equal(12)
 
 		// Set alert cleanup to be near-instantaneous
 		alerts.setTTL(1000, 100)

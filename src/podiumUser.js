@@ -81,7 +81,13 @@ export class PodiumUser extends PodiumRecord {
 					}
 					resolve(profile)
 				})
-				.catch(error => reject(error))
+				.catch(error => {
+					if (error instanceof PodiumError && error.code === 2) {
+						this.profile().then(resolve).catch(reject)
+					} else {
+						reject(error)
+					}
+				})
 		})
 	}
 
@@ -96,7 +102,13 @@ export class PodiumUser extends PodiumRecord {
 			this.podium
 				.getHistory(this.podium.path.forPODTransactionsOf(this.address))
 				.then(resolve)
-				.catch(reject)
+				.catch(error => {
+					if (error instanceof PodiumError && error.code === 2) {
+						resolve(List())
+					} else {
+						reject(error)
+					}
+				})
 		})
 	}
 
@@ -136,7 +148,13 @@ export class PodiumUser extends PodiumRecord {
 					index = index.map(i => i.get("address")).toSet()
 					resolve(index)
 				})
-				.catch(error => reject(error))
+				.catch(error => {
+					if (error instanceof PodiumError && error.code === 2) {
+						resolve(Set())
+					} else {
+						reject(error)
+					}
+				})
 		})
 	}
 
@@ -206,7 +224,7 @@ export class PodiumUser extends PodiumRecord {
 				})
 				.catch(error => {
 					if (error instanceof PodiumError && error.code === 2) {
-						resolve(List())
+						resolve(Set())
 					} else {
 						reject(error)
 					}
@@ -252,7 +270,7 @@ export class PodiumUser extends PodiumRecord {
 				// (i.e. a user with 0 followers)
 				.catch(error => {
 					if (error instanceof PodiumError && error.code === 2) {
-						resolve(List())
+						resolve(Set())
 					} else {
 						reject(error)
 					}
@@ -1169,14 +1187,7 @@ export class PodiumServerActiveUser extends PodiumActiveUser {
 		return new Promise((resolve, reject) => {
 			PodiumActiveUser.prototype.createTransaction
 				.call(this, to, value)
-				.then(transaction => {
-					this.createAlert(
-						"transaction",
-						to,
-						value
-					)
-					resolve(transaction)
-				})
+				.then(resolve)
 				.catch(reject)
 		})
 	}

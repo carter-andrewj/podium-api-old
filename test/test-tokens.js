@@ -82,41 +82,6 @@ export function shouldCreateTransactions() {
 }
 
 
-
-export function shouldCreateTransactionAlerts() {
-
-	it("sends alerts on transactions", function(done) {
-		this.otherUser
-			.alerts(false, 100, true)
-			.then(alerts => {
-
-				expect(alerts).to
-					.be.instanceOf(List)
-
-				const transactionAlerts = alerts
-					.filter(a => a.get("type") === "transaction")
-					.toList()
-				expect(transactionAlerts).to
-					.have.size(1)
-
-				expect(transactionAlerts.first()).to
-					.have.property("type", "transaction")
-				expect(transactionAlerts.first()).to
-					.have.property("from", this.user.address)
-				expect(transactionAlerts.first()).to
-					.have.property("to", this.otherUser.address)
-				expect(transactionAlerts.first()).to
-					.have.property("about", 100)
-
-				done()
-
-			})
-			.catch(error => done(error))
-	})
-
-}
-
-
 export function shouldProvideTokens() {
 
 	it("provides tokens", function(done) {

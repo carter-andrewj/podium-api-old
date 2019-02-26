@@ -23,7 +23,7 @@ import { prepareUsers, shouldCreateUsers } from './test-users';
 import { prepareProfiles, shouldCreateProfiles,
 		 shouldCacheProfiles } from './test-profiles';
 import { prepareTokens, shouldCreateTransactions,
-		 shouldCreateTransactionAlerts, shouldProvideTokens } from './test-tokens';
+		 shouldProvideTokens } from './test-tokens';
 import { prepareFollow, shouldFollow,
 		 shouldFollowWithRoot, shouldFollowWithoutRoot,
 		 shouldCreateFollowAlerts, shouldCacheFollowData } from './test-following';
@@ -517,7 +517,6 @@ describe('Podium', function() {
 						prepareTokens(this, done)
 					})
 					shouldCreateTransactions()
-					shouldCreateTransactionAlerts()
 				})
 
 
@@ -640,7 +639,6 @@ describe('Podium', function() {
 							prepareTokens(this, done)
 						})
 						shouldCreateTransactions()
-						shouldCreateTransactionAlerts()
 					})
 
 

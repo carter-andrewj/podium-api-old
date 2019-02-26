@@ -2,6 +2,7 @@ import { Map, List, fromJS, Set } from 'immutable';
 
 import { PodiumRecord } from './podiumRecord';
 import { PodiumCache } from './podiumCache';
+import { PodiumError } from './podiumError';
 import { checkThrow } from './utils';
 
 

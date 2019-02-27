@@ -801,6 +801,9 @@ export class PodiumServer extends Podium {
 
 				})
 
+				// Make initial post from root user
+				.then(() => this.rootUser.createPost(rootUserData.Post))
+
 				// Resolve
 				.then(() => resolve(this))
 
@@ -820,8 +823,11 @@ export class PodiumServer extends Podium {
 			// Get database for this app ID
 			this.initDB()
 
-			// Recreate root user
-			this.activeUser(rootUserData.ID, rootUserData.Password)
+				// Recreate root user
+				.then(() => this.activeUser(
+					rootUserData.ID,
+					rootUserData.Password
+				))
 
 				// Store root user and resolve
 				.then(rootUser => {

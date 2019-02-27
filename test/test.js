@@ -74,7 +74,8 @@ const testRootUser = {
 	"ID": "podiumTestRoot",
 	"Password": "rootTestPassword",
 	"Name": "Podium Test Root User",
-	"Bio": "This is the bio of the Test Root User"
+	"Bio": "This is the bio of the Test Root User",
+	"Post": "Initial test post from Test Root User!"
 }
 
 const clientTestConfig = {
@@ -458,11 +459,34 @@ describe('Podium', function() {
 						this.podium.rootUser.getBalance()
 					])
 					.then(([transactions, balance]) => {
+						// This test has to account for the
+						// possibility that the concurrent
+						// root user post test completes
+						// before this one.
 						expect(transactions).to
 							.be.instanceOf(List)
-							.and.have.size(2)
+							.and.have.size.within(2, 3)
 						expect(balance).to
-							.equal(1000000001000)
+							.be.at.least(1000000000000)
+						done()
+					})
+					.catch(done)
+			})
+
+			it("posts from the root user", function(done) {
+				this.podium.rootUser.postIndex(true)
+					.then(posts => {
+						expect(posts).to
+							.be.instanceOf(Set)
+							.and.have.size(1)
+						return this.podium
+							.post(posts.first())
+							.content(true)
+					})
+					.then(postContent => {
+						expect(postContent).to
+							.be.instanceOf(Map)
+							.and.have.property("text", testRootUser.Post)
 						done()
 					})
 					.catch(done)

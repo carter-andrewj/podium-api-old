@@ -773,7 +773,7 @@ export class PodiumServer extends Podium {
 
 			// Generate new application version
 			const seed = Math.floor(1000000 * Math.random())
-			this.app = `${this.appID}${seed}`;
+			this.app = `${this.config.RadixApplicationPrefix}${seed}`;
 
 			// Reset database
 			this.resetDB()

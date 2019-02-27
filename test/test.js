@@ -393,6 +393,8 @@ describe('Podium', function() {
 				.catch(error => done(error))
 		})
 
+		after(function() { this.podium.deleteDB() })
+
 		it("instiantiates", function() {
 			expect(this.podium).to
 				.be.an.instanceOf(PodiumServer)
@@ -406,12 +408,6 @@ describe('Podium', function() {
   					expect(res).to.have.status(200)
   					done()
   				})
-		})
-
-		it("has an empty database on startup", function() {
-			var dbUsers = this.podium
-				.db.getCollection("users").count()
-			expect(dbUsers).to.equal(0)
 		})
 
 

@@ -756,13 +756,15 @@ export class PodiumServer extends Podium {
 			this.publicKey = serverKeys.public
 			this.privateKey = serverKeys.private
 
-			// Initialize database
-			this.initDB()
-				.then(db => {
-					this.db = db
-					resolve(this)
-				})
-				.catch(error => reject(error))
+			resolve(this)
+
+			// // Initialize database
+			// this.initDB()
+			// 	.then(db => {
+			// 		this.db = db
+			// 		resolve(this)
+			// 	})
+			// 	.catch(error => reject(error))
 
 		})
 	}
@@ -779,12 +781,15 @@ export class PodiumServer extends Podium {
 			this.initDB()
 
 				// Create root user
-				.then(() => this.createUser(
-					rootUserData.ID,
-					rootUserData.Password,
-					rootUserData.Name,
-					rootUserData.Bio
-				))
+				.then(db => {
+					this.db = db
+					return this.createUser(
+						rootUserData.ID,
+						rootUserData.Password,
+						rootUserData.Name,
+						rootUserData.Bio
+					)
+				})
 
 				// Handle root user
 				.then(rootUser => {
@@ -824,10 +829,13 @@ export class PodiumServer extends Podium {
 			this.initDB()
 
 				// Recreate root user
-				.then(() => this.activeUser(
-					rootUserData.ID,
-					rootUserData.Password
-				))
+				.then(db => {
+					this.db = db
+					return this.activeUser(
+						rootUserData.ID,
+						rootUserData.Password
+					)
+				})
 
 				// Store root user and resolve
 				.then(rootUser => {
@@ -894,7 +902,7 @@ export class PodiumServer extends Podium {
 
 	resetDB() {
 		return new Promise((resolve, reject) => {
-			this.db.deleteDatabase()
+			this.deleteDB()
 			this.initDB()
 				.then(db => {
 					this.db = db
@@ -902,6 +910,11 @@ export class PodiumServer extends Podium {
 				})
 				.catch(error => reject(error))
 		})
+	}
+
+
+	deleteDB() {
+		if (this.db) { this.db.deleteDatabase() }
 	}
 
 
@@ -1025,6 +1038,7 @@ export class PodiumServer extends Podium {
 							id: id,
 							searchid: id.toLowerCase()
 						})
+					this.db.saveDatabase()
 
 					// Follow root account
 					if (this.rootAddress) {

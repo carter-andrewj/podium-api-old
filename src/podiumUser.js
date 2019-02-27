@@ -1160,6 +1160,7 @@ export class PodiumServerActiveUser extends PodiumActiveUser {
 					seen: false,
 					key: `${this.address}${userAddress}${type}${created}`
 				})
+			this.podium.db.saveDatabase()
 		}
 	}
 

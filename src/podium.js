@@ -1008,6 +1008,8 @@ export class PodiumServer extends Podium {
 				)
 				.then(activeUser => {
 
+					console.log("created user", activeUser, id)
+
 					// Add user to roster
 					this.db
 						.getCollection("users")

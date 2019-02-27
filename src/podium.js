@@ -776,7 +776,7 @@ export class PodiumServer extends Podium {
 			this.app = `${this.config.get("RadixApplicationPrefix")}${seed}`;
 
 			// Reset database
-			this.resetDB()
+			this.initDB()
 
 				// Create root user
 				.then(() => this.createUser(
@@ -816,6 +816,9 @@ export class PodiumServer extends Podium {
 
 			// Store app id
 			this.app = appID
+
+			// Get database for this app ID
+			this.initDB()
 
 			// Recreate root user
 			this.activeUser(rootUserData.ID, rootUserData.Password)
@@ -1007,8 +1010,6 @@ export class PodiumServer extends Podium {
 					ext
 				)
 				.then(activeUser => {
-
-					console.log("created user", activeUser, id)
 
 					// Add user to roster
 					this.db

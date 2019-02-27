@@ -57,12 +57,17 @@ export class Podium {
 			this.setDebug(config.DebugMode || false);
 
 			// Extract settings from config
-			this.config = fromJS(config);
+			this.config = fromJS(config)
 
-			this.appID = config.RadixApplicationID || "podium";
-			this.version = config.RadixApplicationVersion || 0;
-			this.app = `${this.appID}|${this.version}`;
+			// Set application ID
+			if (config.RadixApplicationID) {
+				this.app = config.RadixApplicationID
+			} else {
+				const seed = Math.floor(1000000 * Math.random())
+				this.app = `${config.RadixApplicationPrefix}AUTO|${seed}`
+			}
 
+			// Set timings
 			this.launched = (new Date).getTime()
 			this.timeout = config.RadixTimeout || 10000;
 			this.lifetime = config.RadixConnectionLifetime || 60000;
@@ -77,7 +82,7 @@ export class Podium {
 				region: 'eu-west-1',
 				accessKeyId: process.env.AWS_ACCESS_KEY,
 				secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-			});
+			})
 
 			// Connect to radix network
 			//TODO - Test radix connection
@@ -763,17 +768,12 @@ export class PodiumServer extends Podium {
 	}
 
 
-	network(rootUserData) {
-		if (this.config.get("ResumeNetwork")) {
-			return this.getNetwork(rootUserData)
-		} else {
-			return this.createNetwork(rootUserData)
-		}
-	}
-
-
 	createNetwork(rootUserData) {
 		return new Promise((resolve, reject) => {
+
+			// Generate new application version
+			const seed = Math.floor(1000000 * Math.random())
+			this.app = `${this.appID}${seed}`;
 
 			// Reset database
 			this.resetDB()
@@ -794,15 +794,15 @@ export class PodiumServer extends Podium {
 					this.rootUser = rootUser
 					this.config = this.config
 						.set("RootAddress", this.rootAddress)
-						.set("ResumeNetwork", true)
+						.set("RadixApplicationID", this.app)
 
 					// Mint Podium
-					return this.mint(1000000000, rootUser.identity)
+					return this.mint(1000000000000, rootUser.identity)
 
 				})
 
 				// Resolve
-				.then(resolve)
+				.then(() => resolve(this))
 
 				// Handle errors
 				.catch(error => reject(error))
@@ -811,19 +811,28 @@ export class PodiumServer extends Podium {
 	}
 
 
-	getNetwork(rootUserData) {
+	getNetwork(appID, rootUserData) {
 		return new Promise((resolve, reject) => {
+
+			// Store app id
+			this.app = appID
 
 			// Recreate root user
 			this.activeUser(rootUserData.ID, rootUserData.Password)
 
 				// Store root user and resolve
 				.then(rootUser => {
+
+					// Store root user
 					this.rootUser = rootUser
 					this.rootAddress = rootUser.address
 					this.config = this.config
 						.set("RootAddress", this.rootAddress)
+						.set("RadixApplicationID", this.app)
+
+					// Return the app ID
 					resolve(this)
+
 				})
 
 				// Handle errors
@@ -1439,8 +1448,7 @@ export class PodiumClient extends Podium {
 							fetch(`${this.serverURL}/config`)
 								.then(response => response.json())
 								.then(serverConfig => {
-									Podium.prototype.connect
-										.call(this, serverConfig)
+									Podium.prototype.connect.call(this, serverConfig)
 									this.publicKey = serverConfig.publicKey
 									resolve(this)
 								})
@@ -1450,7 +1458,7 @@ export class PodiumClient extends Podium {
 					}
 
 				})
-				.catch(error => reject(error));
+				.catch(reject)
 
 		})
 	}

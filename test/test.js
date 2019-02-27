@@ -54,11 +54,9 @@ process.on('unhandledRejection', err => {
 const testConfig = {
 
 	"DebugMode": false,
-	"ResumeNetwork": false,
 
 	"RadixUniverse": "alphanet",
-	"RadixApplicationID": `podium|TEST|${Math.random()}`,
-	"RadixApplicationVersion": 0,
+	"RadixApplicationPrefix": "podium|TEST|",
 	"RadixTimeout": 10,
 	"RadixConnectionLifetime": 0,
 
@@ -437,13 +435,18 @@ describe('Podium', function() {
 			it("resumes existing networks", function(done) {
 				new PodiumServer()
 					.connect(testConfig)
-					.then(pod => pod.getNetwork(testRootUser))
+					.then(pod => pod.getNetwork(
+						this.podium.app,
+						testRootUser
+					))
 					.then(resumePodium => {
 						expect(resumePodium).to
 							.be.instanceOf(PodiumServer)
 						expect(resumePodium).to
 							.have.property("rootAddress",
 								this.podium.rootAddress)
+						expect(resumePodium).to
+							.have.property("app", this.podium.app)
 						done()
 					})
 					.catch(error => done(error))
@@ -459,7 +462,7 @@ describe('Podium', function() {
 							.be.instanceOf(List)
 							.and.have.size(2)
 						expect(balance).to
-							.equal(1000001000)
+							.equal(1000000001000)
 						done()
 					})
 					.catch(done)

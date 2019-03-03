@@ -878,12 +878,21 @@ export class PodiumActiveUser extends PodiumUser {
 					value: -1 * cost
 				}
 
+				// Build placeholder records for replies
+				const placeholderAccounts = [
+					this.podium.path.forRepliesToPost(this.address)
+				]
+				const placeholderRecord = {
+					placeholder: true
+				}
+
 				// Write main post records
 				var postWrite = this.podium.storeRecords(
 					this.identity,
 					[transactionAccount], transactionRecord,
 					[postAccount], postRecord,
-					[indexAccount], indexRecord
+					[indexAccount], indexRecord,
+					placeholderAccounts, placeholderRecord
 				)
 
 				

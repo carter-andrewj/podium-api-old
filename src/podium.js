@@ -306,13 +306,14 @@ export class Podium {
 			// Create variables
 			let channel;
 			let skipper;
-			var history = List([]);
+			var history = List()
 
 			// Set query timeout
+			let received;
 			const timeoutError = new PodiumError().withCode(2);
 			let radixTimeout = () => {
 				channel.unsubscribe()
-				if (history.size > 0) {
+				if (received) {
 					this.debugOut("Timed out. Resolving with current history.")
 					resolve(history.sort((a, b) =>
 						(a.get("created") > b.get("created")) ? 1 : -1
@@ -355,8 +356,11 @@ export class Podium {
 						.set("received", (new Date()).getTime())
 						.set("created", item.data.timestamp)
 
-					// Add record to history
-					history = history.push(record);
+					// Add record to history (except for placeholders)
+					if (!record.get("placeholder")) {
+						history = history.push(record)
+					}
+					received = true;
 
 					// Assume all records collated 1 second after first
 					// (This won't work long-term, but serves as an
@@ -462,8 +466,10 @@ export class Podium {
 					.set("created", item.data.timestamp)
 				this.debugOut(`Received Item on Channel: ${result.toJS()}`)
 
-				// Run callback
-				callback(result)
+				// Run callback (ignoring placeholder records)
+				if (!result.get("placeholder")) {
+					callback(result)
+				}
 
 			},
 			error: error => {
@@ -606,6 +612,17 @@ export class Podium {
 							owner: address
 						}
 
+						// Add placeholder record to following, post, and follower
+						// accounts to speed loading
+						const placeholderAccounts = [
+							this.path.forPostsBy(address),
+							this.path.forUsersFollowing(address),
+							this.path.forUsersFollowedBy(address)
+						]
+						const placeholderPayload = {
+							placeholder: true
+						}
+
 						// Encrypt keypair
 						const keyStore = this.path.forKeystoreOf(id, pw);
 						RadixKeyStore.encryptKey(identity.keyPair, pw)
@@ -618,7 +635,8 @@ export class Podium {
 									[profileAccount], profilePayload,
 									[podAccount], podPayload,
 									[integrityAccount], integrityPayload,
-									[ownershipAccount], ownershipPayload
+									[ownershipAccount], ownershipPayload,
+									placeholderAccounts, placeholderPayload
 								)
 
 							})

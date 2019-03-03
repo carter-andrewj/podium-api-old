@@ -145,7 +145,7 @@ export class PodiumUser extends PodiumRecord {
 			this.podium
 				.getHistory(this.podium.path.forPostsBy(this.address))
 				.then(index => {
-					index = index.map(i => i.get("address")).toSet()
+					index = index.map(i => i.get("address")).reverse().toSet()
 					resolve(index)
 				})
 				.catch(error => {

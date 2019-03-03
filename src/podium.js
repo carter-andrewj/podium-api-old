@@ -367,7 +367,7 @@ export class Podium {
 						channel.unsubscribe()
 						clearTimeout(expire)
 						resolve(history.sort((a, b) =>
-							(a.get("created") < b.get("created")) ? 1 : -1
+							(a.get("created") > b.get("created")) ? 1 : -1
 						))
 					}, 1000);
 

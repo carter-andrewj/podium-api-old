@@ -870,7 +870,7 @@ export class PodiumActiveUser extends PodiumUser {
 
 				// Build placeholder records for replies
 				const placeholderAccounts = [
-					this.podium.path.forRepliesToPost(this.address)
+					this.podium.path.forRepliesToPost(postAddress)
 				]
 				const placeholderRecord = {
 					placeholder: true

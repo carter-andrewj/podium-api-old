@@ -15,15 +15,17 @@ export function prepareUnfollow(env, done) {
 export function shouldUnfollow() {
 
 	it("can unfollow users", function() {
+		this.retries(2)
 		var testUnfollowing = this.user
-			.isFollowing(this.otherUser.address)
+			.isFollowing(this.otherUser.address, true)
 		return expect(testUnfollowing).to.eventually.be.false
 	})
 
 
 	it("can be unfollowed by users", function() {
+		this.retries(2)
 		var testUnfollowed = this.otherUser
-			.isFollowedBy(this.user.address)
+			.isFollowedBy(this.user.address, true)
 		return expect(testUnfollowed).to.eventually.be.false
 	})
 

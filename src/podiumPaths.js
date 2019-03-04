@@ -89,11 +89,11 @@ export class PodiumPaths {
 	forUsersFollowedBy(address) {
 		return getAccount("podium-user-following-" + address)
 	}
-	forRelationOf(address1, address2) {
-		const addresses = [address1, address2].sort()
-		return getAccount("podium-user-relation-between-" +
-			addresses[0] + "-and-" + addresses[1])
-	}
+	// forRelationOf(address1, address2) {
+	// 	const addresses = [address1, address2].sort()
+	// 	return getAccount("podium-user-relation-between-" +
+	// 		addresses[0] + "-and-" + addresses[1])
+	// }
 
 	// Alerts
 	forAlertsTo(address) {

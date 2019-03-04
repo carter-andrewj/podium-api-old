@@ -176,27 +176,21 @@ export class PodiumUser extends PodiumRecord {
 // FOLLOWING
 
 
-	isFollowing(address) {
+	isFollowing(address, force = false) {
 		this.debugOut(`Checking if User-${this.address} is following User-${address}`)
 		return new Promise((resolve, reject) => {
-			const relationAccount = this.podium.path
-				.forRelationOf(this.address, address)
-			this.podium
-				.getLatest(relationAccount)
-				.then(relation => resolve(relation.get(this.address)))
+			this.followingIndex(force)
+				.then(index => resolve(index.includes(address)))
 				.catch(error => resolve(false))
 		})
 	}
 
 
-	isFollowedBy(address) {
+	isFollowedBy(address, force = false) {
 		this.debugOut(`Checking if User-${this.address} is followed by User-${address}`)
 		return new Promise((resolve, reject) => {
-			const relationAccount = this.podium.path
-				.forRelationOf(this.address, address)
-			this.podium
-				.getLatest(relationAccount)
-				.then(relation => resolve(relation.get(address)))
+			this.followerIndex(force)
+				.then(index => resolve(index.includes(address)))
 				.catch(error => resolve(false))
 		})
 	}
@@ -213,15 +207,18 @@ export class PodiumUser extends PodiumRecord {
 			// Load following users
 			this.podium
 				.getHistory(followingAccount)
-				.then(async following => filterAsync(following,
-					f => this.isFollowing(f.get("address"))
+				.then(history => history.reduce(
+					(index, next) => {
+						const address = next.get("address")
+						if (next.get("status")) {
+							return index.add(address)
+						} else {
+							return index.delete(address)
+						}
+					},
+					Set()
 				))
-				.then(following => {
-					const index = following
-						.map(f => f.get("address"))
-						.toSet()
-					resolve(index)
-				})
+				.then(resolve)
 				.catch(error => {
 					if (error instanceof PodiumError && error.code === 2) {
 						resolve(Set())
@@ -245,25 +242,18 @@ export class PodiumUser extends PodiumRecord {
 			// Load followers
 			this.podium.getHistory(followAccount)
 
-				// Check relation records for each follower
-				// (As there is currently no means to delete
-				// radix atoms, this is the only way to allow
-				// unfollowing. The follower address lists all
-				// users who have ever followed the user, and
-				// the corresponding relation address lists
-				// the current relation between the users)
-				.then(followers => filterAsync(followers,
-					f => this.isFollowedBy(f.get("address"))
+				.then(history => history.reduce(
+					(index, next) => {
+						const address = next.get("address")
+						if (next.get("status")) {
+							return index.add(address)
+						} else {
+							return index.delete(address)
+						}
+					},
+					Set()
 				))
-
-				// Strip the index records to return the
-				// address for each following user
-				.then(followers => {
-					const followerList = followers
-						.map(f => f.get("address"))
-						.toSet()
-					resolve(followerList)
-				})
+				.then(resolve)
 
 				// Handle errors and assume any time-out
 				// error resulted from an empty address
@@ -1023,7 +1013,7 @@ export class PodiumActiveUser extends PodiumUser {
 		return new Promise((resolve, reject) => {
 
 			// Check user is not currently following the user to be followed
-			this.isFollowing(address)
+			this.isFollowing(address, true)
 				.then(followed => {
 					if (!followed) {
 
@@ -1033,17 +1023,9 @@ export class PodiumActiveUser extends PodiumUser {
 						const followRecord = {
 							record: "follower",
 							type: "index",
-							address: this.address
+							address: this.address,
+							status: true
 						}
-
-						// Build relation account and payload
-						const relationAccount = this.podium.path
-							.forRelationOf(this.address, address)
-						const relationRecord = {
-							record: "follower",
-							type: "relation"
-						}
-						relationRecord[this.address] = true
 
 						// Build following payload
 						const followingAccount = this.podium.path
@@ -1051,14 +1033,14 @@ export class PodiumActiveUser extends PodiumUser {
 						const followingRecord = {
 							record: "following",
 							type: "index",
-							address: address
+							address: address,
+							status: true
 						}
 
 						// Store following record
 						this.podium.storeRecords(
 								this.identity,
 								[followAccount], followRecord,
-								[relationAccount], relationRecord,
 								[followingAccount], followingRecord
 							)
 							.then(() => resolve())
@@ -1080,25 +1062,35 @@ export class PodiumActiveUser extends PodiumUser {
 		return new Promise((resolve, reject) => {
 
 			// Check user is currently following the user to be unfollowed
-			this.isFollowing(address)
+			this.isFollowing(address, true)
 				.then(followed => {
 					if (followed) {
 
-						// Build relation account and payload
-						const relationAccount = this.podium.path
-							.forRelationOf(this.address, address);
-						const relationRecord = {
+						// Build follow account payload
+						const followAccount = this.podium.path
+							.forUsersFollowing(address)
+						const followRecord = {
 							record: "follower",
-							type: "relation"
+							type: "index",
+							address: this.address,
+							status: false
 						}
-						relationRecord[this.address] = false;
+
+						// Build following payload
+						const followingAccount = this.podium.path
+							.forUsersFollowedBy(this.address)
+						const followingRecord = {
+							record: "following",
+							type: "index",
+							address: address,
+							status: false
+						}
 
 						// Store following record
-						this.podium
-							.storeRecord(
+						this.podium.storeRecords(
 								this.identity,
-								[relationAccount],
-								relationRecord
+								[followAccount], followRecord,
+								[followingAccount], followingRecord
 							)
 							.then(() => resolve())
 							.catch(error => reject(error))

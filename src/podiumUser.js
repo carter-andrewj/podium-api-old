@@ -1043,11 +1043,11 @@ export class PodiumActiveUser extends PodiumUser {
 								[followAccount], followRecord,
 								[followingAccount], followingRecord
 							)
-							.then(() => resolve())
+							.then(() => resolve(this))
 							.catch(error => reject(error))
 
 					} else {
-						resolve()
+						resolve(this)
 					}
 				})
 				.catch(error => reject(error))
@@ -1092,11 +1092,11 @@ export class PodiumActiveUser extends PodiumUser {
 								[followAccount], followRecord,
 								[followingAccount], followingRecord
 							)
-							.then(() => resolve())
+							.then(() => resolve(this))
 							.catch(error => reject(error))
 
 					} else {
-						resolve()
+						resolve(this)
 					}
 				})
 				.catch(error => reject(error))
@@ -1248,7 +1248,7 @@ export class PodiumServerActiveUser extends PodiumActiveUser {
 			PodiumActiveUser.prototype.follow.call(this, address)
 				.then(() => {
 					this.createAlert("follow", address)
-					resolve()
+					resolve(this)
 				})
 				.catch(error => reject(error))
 		})
@@ -1507,7 +1507,7 @@ export class PodiumClientActiveUser extends PodiumClientUser {
 				)
 				.then(() => {
 					this.cache.add("following", address)
-					resolve()
+					resolve(this)
 				})
 				.catch(error => reject(error))
 		})
@@ -1524,7 +1524,7 @@ export class PodiumClientActiveUser extends PodiumClientUser {
 				)
 				.then(() => {
 					this.cache.remove("following", address)
-					resolve()
+					resolve(this)
 				})
 				.catch(error => reject(error))
 		})

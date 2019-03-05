@@ -104,7 +104,7 @@ export class PodiumUser extends PodiumRecord {
 				.then(resolve)
 				.catch(error => {
 					if (error instanceof PodiumError && error.code === 2) {
-						resolve(List())
+						resolve(this.transactionIndex())
 					} else {
 						reject(error)
 					}

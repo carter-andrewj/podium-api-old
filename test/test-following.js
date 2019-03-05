@@ -17,6 +17,7 @@ export function prepareFollow(env, done) {
 export function shouldFollow() {
 
 	it("can follow other users", function() {
+		this.retries(2)
 		var testFollowing = this.user
 			.isFollowing(this.otherUser.address)
 		return expect(testFollowing).to.eventually.be.true
@@ -24,6 +25,7 @@ export function shouldFollow() {
 
 
 	it("can be followed by other users", function() {
+		this.retries(2)
 		var testFollower = this.otherUser
 			.isFollowedBy(this.user.address)
 		return expect(testFollower).to.eventually.be.true

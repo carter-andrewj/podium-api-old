@@ -1128,7 +1128,7 @@ export class PodiumServer extends Podium {
 		return new Promise((resolve, reject) => {
 			const check = this.db
 				.getCollection("users")
-				.findOne({ id: id })
+				.findOne({ searchid: id.toLowerCase() })
 			const result = check ? check.address : false
 			resolve(result)
 		})

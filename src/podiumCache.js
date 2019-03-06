@@ -19,6 +19,8 @@ export class PodiumCache {
 		const args = Array.prototype.slice.call(arguments)
 		if (args.length === 0) {
 			return fromJS(this.cache)
+		} else if (!this.cache[args[0]]) {
+			return undefined
 		} else if (args.length === 1) {
 			return this.cache[args[0]]
 		} else {

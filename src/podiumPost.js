@@ -164,7 +164,7 @@ export class PodiumClientPost extends PodiumPost {
 	constructor(podium, address) {
 		super(podium, address)
 		this.cache = new PodiumCache({
-			content: {},
+			content: Map(),
 			replies: Set(),
 			promotions: Set(),
 			reports: Set()

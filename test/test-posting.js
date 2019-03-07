@@ -1,6 +1,6 @@
 import chai, { expect } from 'chai';
 
-import { Map, Set, List, fromJS } from 'immutable';
+import { Map, OrderedSet, List, fromJS } from 'immutable';
 
 import { PodiumPost } from '../src/podiumPost';
 import { PodiumError } from '../src/podiumError';
@@ -175,7 +175,7 @@ export function shouldCreatePosts() {
 	it("can be indexed by the posting user", function() {
 		var postList = this.user.postIndex(true)
 		return expect(postList).to.eventually
-			.be.an.instanceOf(Set)
+			.be.an.instanceOf(OrderedSet)
 			.and.have.size(3)
 			.and.include(this.post.address)
 			.and.include(this.thread.address)
@@ -185,7 +185,7 @@ export function shouldCreatePosts() {
 	it("can be indexed by other users", function() {
 		var passivePostList = this.passiveUser.postIndex(true)
 		return expect(passivePostList).to.eventually
-			.be.an.instanceOf(Set)
+			.be.an.instanceOf(OrderedSet)
 			.and.have.size(3)
 			.and.include(this.post.address, this.thread.address)
 	})
@@ -276,11 +276,11 @@ export function shouldCreatePosts() {
 		Promise.all([replyPromise, threadPromise])
 			.then(([replyIndex, threadIndex]) => {
 				expect(replyIndex).to
-					.be.an.instanceOf(Set)
+					.be.an.instanceOf(OrderedSet)
 					.and.have.size(2)
 					.and.include(this.reply.address)
 				expect(threadIndex).to
-					.be.an.instanceOf(Set)
+					.be.an.instanceOf(OrderedSet)
 					.and.have.size(1)
 					.and.include(this.thread.address)
 				done()
@@ -448,7 +448,7 @@ export function shouldCachePostData() {
 		this.user.postIndex(false)
 			.then(posts => {
 				expect(posts).to
-					.be.an.instanceOf(Set)
+					.be.an.instanceOf(OrderedSet)
 					.and.have.size(3)
 					.and.include(this.post.address)
 					.and.include(this.thread.address)
@@ -464,7 +464,7 @@ export function shouldCachePostData() {
 		this.post.replyIndex(false)
 			.then(replies => {
 				expect(replies).to
-					.be.an.instanceOf(Set)
+					.be.an.instanceOf(OrderedSet)
 					.and.have.size(2)
 					.and.include(this.reply.address)
 				expect(replies).to

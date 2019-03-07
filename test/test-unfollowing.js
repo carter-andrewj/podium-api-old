@@ -1,6 +1,6 @@
 import chai, { expect } from 'chai';
 
-import { Set } from 'immutable';
+import { OrderedSet } from 'immutable';
 
 
 export function prepareUnfollow(env, done) {
@@ -37,7 +37,7 @@ export function shouldUnfollowWithoutRoot() {
 	it("can correctly see which users now follow them", function() {
 		var unfollowers = this.otherUser.followerIndex(true)
 		return expect(unfollowers).to.eventually
-			.be.an.instanceOf(Set)
+			.be.an.instanceOf(OrderedSet)
 			.and.have.size(0)
 	})
 
@@ -45,7 +45,7 @@ export function shouldUnfollowWithoutRoot() {
 	it("can correctly see which users they now follow", function() {
 		var unfollowing = this.user.followingIndex(true)
 		return expect(unfollowing).to.eventually
-			.be.an.instanceOf(Set)
+			.be.an.instanceOf(OrderedSet)
 			.and.have.size(0)
 	})
 
@@ -58,7 +58,7 @@ export function shouldUnfollowWithRoot() {
 	it("can correctly see which users now follow them", function() {
 		var unfollowers = this.otherUser.followerIndex(true)
 		return expect(unfollowers).to.eventually
-			.be.an.instanceOf(Set)
+			.be.an.instanceOf(OrderedSet)
 			.and.have.size(0)
 	})
 
@@ -66,7 +66,7 @@ export function shouldUnfollowWithRoot() {
 	it("can correctly see which users they now follow", function() {
 		var unfollowing = this.user.followingIndex(true)
 		return expect(unfollowing).to.eventually
-			.be.an.instanceOf(Set)
+			.be.an.instanceOf(OrderedSet)
 			.and.have.size(1)
 			.and.include(this.podium.rootAddress)
 	})
@@ -83,7 +83,7 @@ export function shouldCacheUnfollowData() {
 			.followerIndex(false)
 			.then(followers => {
 				expect(followers).to
-					.be.an.instanceOf(Set)
+					.be.an.instanceOf(OrderedSet)
 					.and.have.size(0)
 				expect(followers).to
 					.equal(this.otherUser.cache.get("followers"))
@@ -98,7 +98,7 @@ export function shouldCacheUnfollowData() {
 			.followingIndex(false)
 			.then(followed => {
 				expect(followed).to
-					.be.an.instanceOf(Set)
+					.be.an.instanceOf(OrderedSet)
 					.and.have.size(1)
 					.and.include(this.podium.rootAddress)
 				expect(followed).to

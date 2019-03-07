@@ -1,4 +1,4 @@
-import { Map, List, fromJS, Set } from 'immutable';
+import { Map, List, fromJS, OrderedSet } from 'immutable';
 
 import { PodiumRecord } from './podiumRecord';
 import { PodiumCache } from './podiumCache';
@@ -102,12 +102,12 @@ export class PodiumPost extends PodiumRecord {
 				.then(index => {
 					index = index
 						.map(r => r.get("address"))
-						.toSet()
+						.toOrderedSet()
 					resolve(index)
 				})
 				.catch(error => {
 					if (error instanceof PodiumError && error.code === 2) {
-						resolve(Set())
+						resolve(OrderedSet())
 					} else {
 						reject(error)
 					}
@@ -120,12 +120,12 @@ export class PodiumPost extends PodiumRecord {
 			this.podium
 				.getHistory(this.podium.path.forPromotionsOfPost(this.address))
 				.then(index => {
-					index = index.map(r => r.get("address")).toSet()
+					index = index.map(r => r.get("address")).toOrderedSet()
 					resolve(index)
 				})
 				.catch(error => {
 					if (error instanceof PodiumError && error.code === 2) {
-						resolve(Set())
+						resolve(OrderedSet())
 					} else {
 						reject(error)
 					}
@@ -139,12 +139,12 @@ export class PodiumPost extends PodiumRecord {
 				.getHistory(this.podium.path
 					.forReportsOfPost(this.address))
 				.then(index => {
-					index = index.map(r => r.get("address")).toSet()
+					index = index.map(r => r.get("address")).toOrderedSet()
 					resolve(index)
 				})
 				.catch(error => {
 					if (error instanceof PodiumError && error.code === 2) {
-						resolve(Set())
+						resolve(OrderedSet())
 					} else {
 						reject(error)
 					}
@@ -165,9 +165,9 @@ export class PodiumClientPost extends PodiumPost {
 		super(podium, address)
 		this.cache = new PodiumCache({
 			content: Map(),
-			replies: Set(),
-			promotions: Set(),
-			reports: Set()
+			replies: OrderedSet(),
+			promotions: OrderedSet(),
+			reports: OrderedSet()
 		})
 	}
 
@@ -250,7 +250,7 @@ export class PodiumClientPost extends PodiumPost {
 					.catch(error => {
 						if (error.code === 2) {
 							this.cache.clear("replies")
-							resolve(Set())
+							resolve(OrderedSet())
 						} else {
 							reject(error)
 						}
@@ -272,7 +272,7 @@ export class PodiumClientPost extends PodiumPost {
 					.catch(error => {
 						if (error.code === 2) {
 							this.cache.clear("promotions")
-							resolve(Set())
+							resolve(OrderedSet())
 						} else {
 							reject(error)
 						}
@@ -294,7 +294,7 @@ export class PodiumClientPost extends PodiumPost {
 					.catch(error => {
 						if (error.code === 2) {
 							this.cache.clear("reports")
-							resolve(Set())
+							resolve(OrderedSet())
 						} else {
 							reject(error)
 						}

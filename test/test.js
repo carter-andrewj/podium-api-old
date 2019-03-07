@@ -6,7 +6,7 @@ import chaiHttp from 'chai-http';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { Map, Set, List } from 'immutable';
+import { Map, OrderedSet, List } from 'immutable';
 
 import Express from 'express';
 
@@ -473,7 +473,7 @@ describe('Podium', function() {
 				this.podium.rootUser.postIndex(true)
 					.then(posts => {
 						expect(posts).to
-							.be.instanceOf(Set)
+							.be.instanceOf(OrderedSet)
 							.and.have.size(1)
 						return this.podium
 							.post(posts.first())

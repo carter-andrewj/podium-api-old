@@ -1,4 +1,4 @@
-import { Map, Set, List, fromJS } from 'immutable';
+import { Map, OrderedSet, List, fromJS } from 'immutable';
 
 import { RadixSimpleIdentity, RadixKeyStore, RadixLogger } from 'radixdlt';
 
@@ -145,12 +145,12 @@ export class PodiumUser extends PodiumRecord {
 			this.podium
 				.getHistory(this.podium.path.forPostsBy(this.address))
 				.then(index => {
-					index = index.map(i => i.get("address")).reverse().toSet()
+					index = index.map(i => i.get("address")).reverse().toOrderedSet()
 					resolve(index)
 				})
 				.catch(error => {
 					if (error instanceof PodiumError && error.code === 2) {
-						resolve(Set())
+						resolve(OrderedSet())
 					} else {
 						reject(error)
 					}
@@ -216,12 +216,12 @@ export class PodiumUser extends PodiumRecord {
 							return index.delete(address)
 						}
 					},
-					Set()
+					OrderedSet()
 				))
 				.then(resolve)
 				.catch(error => {
 					if (error instanceof PodiumError && error.code === 2) {
-						resolve(Set())
+						resolve(OrderedSet())
 					} else {
 						reject(error)
 					}
@@ -251,7 +251,7 @@ export class PodiumUser extends PodiumRecord {
 							return index.delete(address)
 						}
 					},
-					Set()
+					OrderedSet()
 				))
 				.then(resolve)
 
@@ -260,7 +260,7 @@ export class PodiumUser extends PodiumRecord {
 				// (i.e. a user with 0 followers)
 				.catch(error => {
 					if (error instanceof PodiumError && error.code === 2) {
-						resolve(Set())
+						resolve(OrderedSet())
 					} else {
 						reject(error)
 					}
@@ -317,13 +317,13 @@ export class PodiumClientUser extends PodiumUser {
 		super(podium, address)
 		this.cache = new PodiumCache({
 			profile: Map(),
-			followers: Set(),
-			following: Set(),
-			posts: Set(),
+			followers: OrderedSet(),
+			following: OrderedSet(),
+			posts: OrderedSet(),
 			transactions: List(),
-			promoted: Set(),
-			reports: Set(),
-			alerts: Set()
+			promoted: OrderedSet(),
+			reports: OrderedSet(),
+			alerts: OrderedSet()
 		})
 	}
 
@@ -463,7 +463,7 @@ export class PodiumClientUser extends PodiumUser {
 					.catch(error => {
 						if (error.code === 2) {
 							this.cache.clear("posts")
-							resolve(Set())
+							resolve(OrderedSet())
 						} else {
 							reject(error)
 						}
@@ -487,7 +487,7 @@ export class PodiumClientUser extends PodiumUser {
 					.catch(error => {
 						if (error.code === 2) {
 							this.cache.clear("followed")
-							resolve(Set())
+							resolve(OrderedSet())
 						} else {
 							reject(error)
 						}
@@ -511,7 +511,7 @@ export class PodiumClientUser extends PodiumUser {
 					.catch(error => {
 						if (error.code === 2) {
 							this.cache.clear("followers")
-							resolve(Set())
+							resolve(OrderedSet())
 						} else {
 							reject(error)
 						}

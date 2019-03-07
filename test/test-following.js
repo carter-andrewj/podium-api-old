@@ -1,6 +1,6 @@
 import chai, { expect } from 'chai';
 
-import { Set, List } from 'immutable';
+import { OrderedSet, List } from 'immutable';
 
 
 
@@ -39,7 +39,7 @@ export function shouldFollowWithoutRoot() {
 	it("can see which users they follow", function() {
 		var followers = this.otherUser.followerIndex()
 		return expect(followers).to.eventually
-			.be.an.instanceOf(Set)
+			.be.an.instanceOf(OrderedSet)
 			.and.have.size(1)
 			.and.include(this.user.address)
 	})
@@ -48,7 +48,7 @@ export function shouldFollowWithoutRoot() {
 	it("can see which users follow them", function() {
 		var following = this.user.followingIndex()
 		return expect(following).to.eventually
-			.be.an.instanceOf(Set)
+			.be.an.instanceOf(OrderedSet)
 			.and.have.size(1)
 			.and.include(this.otherUser.address)
 	})
@@ -76,7 +76,7 @@ export function shouldFollowWithRoot() {
 	it("can see which users they follow", function() {
 		var followers = this.otherUser.followerIndex()
 		return expect(followers).to.eventually
-			.be.an.instanceOf(Set)
+			.be.an.instanceOf(OrderedSet)
 			.and.have.size(1)
 			.and.include(this.user.address)
 	})
@@ -85,7 +85,7 @@ export function shouldFollowWithRoot() {
 	it("can see which users follow them", function() {
 		var following = this.user.followingIndex()
 		return expect(following).to.eventually
-			.be.an.instanceOf(Set)
+			.be.an.instanceOf(OrderedSet)
 			.and.have.size(2)
 			.and.include(this.otherUser.address)
 	})
@@ -135,7 +135,7 @@ export function shouldCacheFollowData() {
 			.followerIndex(false)
 			.then(followers => {
 				expect(followers).to
-					.be.an.instanceOf(Set)
+					.be.an.instanceOf(OrderedSet)
 					.and.have.size(1)
 					.and.include(this.user.address)
 				done()
@@ -149,7 +149,7 @@ export function shouldCacheFollowData() {
 			.followingIndex(false)
 			.then(followed => {
 				expect(followed).to
-					.be.an.instanceOf(Set)
+					.be.an.instanceOf(OrderedSet)
 					.and.have.size(2)
 					.and.include(this.otherUser.address)
 				done()

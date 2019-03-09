@@ -8,7 +8,6 @@ export class PodiumError extends Error {
 		this.podiumError = true	// To allow quick identification
 								// of custom errors returned
 								// from the server
-		Error.captureStackTrace(this, PodiumError)
 	}
 
 	withCode(code) {

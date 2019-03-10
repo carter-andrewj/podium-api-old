@@ -308,7 +308,7 @@ export class Podium {
 			let skipper;
 			var history = List()
 
-			// Set query timeout
+			// Set up query timeout
 			let received;
 			const timeoutError = new PodiumError().withCode(2);
 			let radixTimeout = () => {
@@ -323,14 +323,21 @@ export class Podium {
 					reject(timeoutError)
 				}
 			}
-			var expire = setTimeout(radixTimeout, timeout * 1000)
+
+			// Generate timeout, if required
+			let expire;
+			if (timeout && timeout > 0) {
+				expire = setTimeout(radixTimeout, timeout * 1000)
+			}
 
 			// Open the account connection and delay timeout
 			// in event of node connection failure
 			account.openNodeConnection()
 				.catch(error => {
 					clearTimeout(expire)
-					expire = setTimeout(radixTimeout, timeout * 1000)
+					if (timeout && timeout > 0) {
+						expire = setTimeout(radixTimeout, timeout * 1000)
+					}
 				})
 
 			// Connect to account data
@@ -776,14 +783,6 @@ export class PodiumServer extends Podium {
 
 			resolve(this)
 
-			// // Initialize database
-			// this.initDB()
-			// 	.then(db => {
-			// 		this.db = db
-			// 		resolve(this)
-			// 	})
-			// 	.catch(error => reject(error))
-
 		})
 	}
 
@@ -794,6 +793,10 @@ export class PodiumServer extends Podium {
 			// Generate new application version
 			const seed = Math.floor(1000000 * Math.random())
 			this.app = `${this.config.get("RadixApplicationPrefix")}${seed}`;
+
+			// Prevent timeouts during creation
+			const savedTimeout = this.timeout
+			this.timeout = 0
 
 			// Reset database
 			this.initDB()
@@ -827,8 +830,11 @@ export class PodiumServer extends Podium {
 				// Make initial post from root user
 				.then(() => this.rootUser.createPost(rootUserData.Post))
 
-				// Resolve
-				.then(() => resolve(this))
+				// Restore timeout and resolve
+				.then(() => {
+					this.timeout = savedTimeout
+					resolve(this)
+				})
 
 				// Handle errors
 				.catch(error => reject(error))

@@ -13,6 +13,34 @@ export class PodiumPaths {
 			'9he94tVfQGAVr4xoUpG3uJfB2exURExzFV6E7dq4bxUWRbM5Edd', true);
 	}
 
+
+	// Governance
+	forLaw(id) {
+		return getAccount("podium-governance-law-" + id.toLowerCase())
+	}
+	forLawAdvice(id) {
+		return getAccount("podium-governance-law-advice-" + id.toLowerCase())
+	}
+	forLawArticle(id) {
+		return getAccount("podium-governance-law-article-" + id.toLowerCase())
+	}
+	forLawTest(id) {
+		return getAccount("podium-governance-law-test-" + id.toLowerCase())
+	}
+	forLawConsideration(id) {
+		return getAccount("podium-governance-law-consideration-" + id.toLowerCase())
+	}
+	forRight(id) {
+		return getAccount("podium-governance-right-" + id.toLowerCase())
+	}
+	forRightLevel(id) {
+		return getAccount("podium-governance-right-level-" + id.toLowerCase())
+	}
+	forSanction(id) {
+		return getAccount("podium-governance-sanction-" + id.toLowerCase())
+	}
+
+
 	// Users
 	forProfileOf(address) {
 		return RadixAccount.fromAddress(address)
